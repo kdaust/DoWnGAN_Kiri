@@ -90,7 +90,7 @@ def load_fine(path_dict: dict) -> dict:
         # Standardize the dimension names so that
         # They're all the same!
         datasets_dict[key] = standardize_attribute_names(datasets_dict[key])
-        #datasets_dict[key] = crop_dataset(datasets_dict[key], config.scale_factor)
+        datasets_dict[key] = crop_dataset(datasets_dict[key], config.scale_factor)
 
         print("Dataset dimensions ", datasets_dict[key].dims)
         #datasets_dict[key]["time"] = wrf_to_dt(datasets_dict[key]["time"])

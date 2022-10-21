@@ -103,5 +103,6 @@ regions = {
     "central": {"lat_min": 30, "lat_max": 46, "lon_min": 50, "lon_max": 66},
     "central_larger": {"lat_min": 9, "lat_max": 47, "lon_min": 29, "lon_max": 67},
     "west": {"lat_min": 30, "lat_max": 46, "lon_min": 15, "lon_max": 31},
+    "kiri_test": {"lat_min": 1, "lat_max": 20, "lon_min": 1, "lon_max": 20}
 }
 
