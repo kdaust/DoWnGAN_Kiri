@@ -90,10 +90,10 @@ def load_fine(path_dict: dict) -> dict:
         # Standardize the dimension names so that
         # They're all the same!
         datasets_dict[key] = standardize_attribute_names(datasets_dict[key])
-        datasets_dict[key] = crop_dataset(datasets_dict[key], config.scale_factor)
+        #datasets_dict[key] = crop_dataset(datasets_dict[key], config.scale_factor)
 
         print("Dataset dimensions ", datasets_dict[key].dims)
-        datasets_dict[key]["time"] = wrf_to_dt(datasets_dict[key]["time"])
+        #datasets_dict[key]["time"] = wrf_to_dt(datasets_dict[key]["time"])
 
     return datasets_dict
 
@@ -147,7 +147,7 @@ def load_covariates(path_dict: dict, ref_dataset: xr.Dataset) -> dict:
     ref_coarse = datasets_dict[config.ref_coarse]
     for key in datasets_dict:
         datasets_dict[key] = datasets_dict[key].assign_coords({"time": config.range_datetimes, "lat": ref_coarse.lat, "lon": ref_coarse.lon})
-    print(datasets_dict["geopotential"])
+    #print(datasets_dict["geopotential"])
     return datasets_dict
 
 
@@ -175,8 +175,8 @@ def train_test_split(coarse: xr.Dataset, fine: xr.Dataset) -> xr.Dataset:
 
     # Mask out the first element from the year 2000 because its
     # an incorrect field
-    if 2000 in config.mask_years:
-        test_time_mask[0] = False
+    # if 2000 in config.mask_years:
+    #     test_time_mask[0] = False
 
     coarse_train = coarse.loc[{"time": train_time_mask}]
     fine_train = fine.loc[{"time": train_time_mask}]
@@ -205,15 +205,17 @@ def xr_standardize_all(data_dict: dict) -> dict:
     Standardizes the data arrays in the dictionary.
     """
     for key in data_dict:
+        ##print(data_dict[key])
         # Binary land mask does not need normalization
         if key != "land_sea_mask":
-            std = float(data_dict[key].std())
-            mean = float(data_dict[key].mean())
+            print(data_dict[key].std()[key])
+            std = float(data_dict[key].std()[key])
+            mean = float(data_dict[key].mean()[key])
             print("-"*80)
             print(f"Before Mean of {key}", mean)
             print(f"Before Standard Deviation of {key}", std)
 
-            data_dict[key] = xr_standardize_array(data_dict[key])
+            data_dict[key] = xr_standardize_array(data_dict[key][key])
             std = float(data_dict[key].std())
             mean = float(data_dict[key].mean())
             print("-"*80)

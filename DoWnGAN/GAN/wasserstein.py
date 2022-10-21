@@ -146,37 +146,38 @@ class WassersteinGAN:
             )
             self.num_steps += 1
 
-        # Take mean of all batches and log to file
-        with torch.no_grad():
-            post_epoch_metric_mean(train_metrics, "train")
-
-            # Generate plots from training set
-            cbatch, rbatch = next(iter(dataloader))
-            gen_grid_images(self.G, cbatch, rbatch, epoch, "train")
-
-            test_metrics = initialize_metric_dicts({})
-            for data in testdataloader:
-                coarse = data[0].to(config.device)
-                fine = data[1].to(config.device)
-
-                # Track train set metrics
-                test_metrics = gen_batch_and_log_metrics(
-                    self.G,
-                    self.C,
-                    coarse,
-                    fine,
-                    test_metrics,
-                )
-
+        if epoch % 10 == 0:
             # Take mean of all batches and log to file
-            post_epoch_metric_mean(test_metrics, "test")
-
-            cbatch, rbatch = next(iter(testdataloader))
-            gen_grid_images(self.G, cbatch, rbatch, epoch, "test")
-
-            # Log the models to mlflow pytorch models
-            print(f"Artifact URI: {mlflow.get_artifact_uri()}")
-            log_network_models(self.C, self.G, epoch)
+            with torch.no_grad():
+                post_epoch_metric_mean(train_metrics, "train")
+    
+                # Generate plots from training set
+                cbatch, rbatch = next(iter(dataloader))
+                gen_grid_images(self.G, cbatch, rbatch, epoch, "train")
+    
+                test_metrics = initialize_metric_dicts({})
+                for data in testdataloader:
+                    coarse = data[0].to(config.device)
+                    fine = data[1].to(config.device)
+    
+                    # Track train set metrics
+                    test_metrics = gen_batch_and_log_metrics(
+                        self.G,
+                        self.C,
+                        coarse,
+                        fine,
+                        test_metrics,
+                    )
+    
+                # Take mean of all batches and log to file
+                post_epoch_metric_mean(test_metrics, "test")
+    
+                cbatch, rbatch = next(iter(testdataloader))
+                gen_grid_images(self.G, cbatch, rbatch, epoch, "test")
+    
+                # Log the models to mlflow pytorch models
+                print(f"Artifact URI: {mlflow.get_artifact_uri()}")
+                log_network_models(self.C, self.G, epoch)
 
     def train(self, dataloader, testdataloader):
         """

@@ -29,6 +29,6 @@ if __name__ == "__main__":
     # set up cluster and workers
     cores = int(multiprocessing.cpu_count()/2)
     print(f"Using {cores} cores")
-    client = Client(n_workers = cores, threads_per_worker = 2, memory_limit='12GB')
+    client = Client(n_workers = cores, threads_per_worker = 2, memory_limit='32GB')
     gen_netcdf()
         

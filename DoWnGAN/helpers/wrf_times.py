@@ -10,7 +10,7 @@ def datetime_wrf_period(start_time, end_time):
     """
 
     diff = end_time-start_time
-    hours = int((diff.days * 24 + diff.seconds // 3600)/6)
+    hours = int((diff.days * 24 + diff.seconds // 3600))
     times = [start_time + timedelta(hours=i*6) for i in range(hours)]
     return times
 
