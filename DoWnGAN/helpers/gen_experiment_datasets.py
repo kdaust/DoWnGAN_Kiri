@@ -225,7 +225,7 @@ def xr_standardize_all(data_dict: dict) -> dict:
             # is within a few orders of magnitude.
             if key != "surface_pressure":
                 assert np.isclose(mean, 0., atol=1e-2), "Mean of the data is not 0!"
-                assert np.isclose(std, 1., atol=1e-1), "Standard deviation of the data is not 1!"
+                assert np.isclose(std, 1., atol=1.0), "Standard deviation of the data is not 1!"
 
             if key == "surface_pressure":
                 assert np.isclose(mean, 0., atol=1e-2), "Mean of the data is not 0!"
