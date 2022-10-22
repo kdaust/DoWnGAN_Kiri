@@ -198,7 +198,9 @@ def xr_standardize_array(da: xr.DataArray) -> xr.DataArray:
     """
     mean = da.mean(skipna=True)
     std = da.std(skipna=True)
-    return (da - mean) / std
+    da2 = (da - mean)/std
+    print(da2.std(skipna=True))
+    return da2
 
 def xr_standardize_all(data_dict: dict) -> dict:
     """
