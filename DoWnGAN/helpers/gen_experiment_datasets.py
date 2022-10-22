@@ -208,14 +208,14 @@ def xr_standardize_all(data_dict: dict) -> dict:
         ##print(data_dict[key])
         # Binary land mask does not need normalization
         if key != "land_sea_mask":
-            print(data_dict[key].std()[key])
-            std = float(data_dict[key].std()[key])
-            mean = float(data_dict[key].mean()[key])
+            print(data_dict[key].std())
+            std = float(data_dict[key].std())
+            mean = float(data_dict[key].mean())
             print("-"*80)
             print(f"Before Mean of {key}", mean)
             print(f"Before Standard Deviation of {key}", std)
 
-            data_dict[key] = xr_standardize_array(data_dict[key][key])
+            data_dict[key] = xr_standardize_array(data_dict[key])
             std = float(data_dict[key].std())
             mean = float(data_dict[key].mean())
             print("-"*80)
