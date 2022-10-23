@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 from dask.distributed import Client, LocalCluster
 import dask
+import sys
 
 import matplotlib.pyplot as plt
 
@@ -150,6 +151,34 @@ def load_covariates(path_dict: dict, ref_dataset: xr.Dataset) -> dict:
     #print(datasets_dict["geopotential"])
     return datasets_dict
 
+
+def load_covariates_test(path_dict: dict, ref_dataset: xr.Dataset) -> dict:
+    """
+    Loads covariates from netcdf files. 
+    Parameters:
+    -----------):
+    """
+
+    datasets_dict = {}
+    # Load covariates
+    for key in path_dict:
+        print("Adding ", key)
+        print("--"*80)
+        ds = xr.open_dataset(path_dict[key], engine="netcdf4")
+        ds = standardize_attribute_names(ds)
+
+        ds = ds.sortby("lat", ascending=True)
+        datasets_dict[key] = ds[config.covariate_names_ordered[key]]
+
+        datasets_dict[key] = crop_dataset(datasets_dict[key], 1)
+
+    print(datasets_dict.keys())
+    sys.exit()
+    ref_coarse = datasets_dict[config.ref_coarse]
+    for key in datasets_dict:
+        datasets_dict[key] = datasets_dict[key].assign_coords({"time": config.range_datetimes, "lat": ref_coarse.lat, "lon": ref_coarse.lon})
+    #print(datasets_dict["geopotential"])
+    return datasets_dict
 
 def concat_data_arrays(data_dict: dict, variable_order: list) -> xr.DataArray:
     """
