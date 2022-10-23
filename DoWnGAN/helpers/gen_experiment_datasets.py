@@ -201,7 +201,9 @@ def train_test_split(coarse: xr.Dataset, fine: xr.Dataset) -> xr.Dataset:
     assert coarse.time.shape[0] == fine.time.shape[0], "Time dim on coarse and fine datasets do not match!"
     time_arr = fine.time
     train_time_mask = filter_times(time_arr, mask_years=config.mask_years)
-    test_time_mask = ~train_time_mask.copy()
+    print(len(train_time_mask))
+    print(train_time_mask)
+    #test_time_mask = ~train_time_mask.copy()
 
     # Mask out the first element from the year 2000 because its
     # an incorrect field
