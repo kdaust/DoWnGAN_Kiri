@@ -88,8 +88,8 @@ cov_paths_dict = {
 # Common names ordered, Just add variables into this dictionary when extending.
 covariate_names_ordered = {
     # Standard name: variable name in netcdf
-    "u10": 'u10',
-    "v10": "v10",
+    "u10": 'U10',
+    "v10": "V10",
 }
 
 fine_names_ordered = {"u10": "u10", "v10": "v10"}

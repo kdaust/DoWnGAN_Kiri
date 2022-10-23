@@ -168,6 +168,7 @@ def load_covariates_test(path_dict: dict, ref_dataset: xr.Dataset) -> dict:
         ds = standardize_attribute_names(ds)
 
         ds = ds.sortby("lat", ascending=True)
+        print(ds)
         datasets_dict[key] = ds[config.covariate_names_ordered[key]]
 
         datasets_dict[key] = crop_dataset(datasets_dict[key], 1)
