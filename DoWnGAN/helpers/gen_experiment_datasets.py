@@ -173,11 +173,11 @@ def load_covariates_test(path_dict: dict, ref_dataset: xr.Dataset) -> dict:
 
         datasets_dict[key] = crop_dataset(datasets_dict[key], 1)
 
-    print(datasets_dict.keys())
-    sys.exit()
+    ##print(datasets_dict.keys())
+    ##sys.exit()
     ref_coarse = datasets_dict[config.ref_coarse]
     for key in datasets_dict:
-        datasets_dict[key] = datasets_dict[key].assign_coords({"time": config.range_datetimes, "lat": ref_coarse.lat, "lon": ref_coarse.lon})
+        datasets_dict[key] = datasets_dict[key].assign_coords({"time": ref_coarse.time, "lat": ref_coarse.lat, "lon": ref_coarse.lon})
     #print(datasets_dict["geopotential"])
     return datasets_dict
 

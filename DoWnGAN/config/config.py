@@ -77,6 +77,8 @@ non_standard_attributes = {
     "times": "time",
     "U10": "u10",
     "V10": "v10",
+    "uas": "u10",
+    "vas": "v10",
 }
 
 # Covariate paths list
@@ -88,8 +90,8 @@ cov_paths_dict = {
 # Common names ordered, Just add variables into this dictionary when extending.
 covariate_names_ordered = {
     # Standard name: variable name in netcdf
-    "u10": 'U10',
-    "v10": "V10",
+    "u10": 'u10',
+    "v10": "v10",
 }
 
 fine_names_ordered = {"u10": "u10", "v10": "v10"}
