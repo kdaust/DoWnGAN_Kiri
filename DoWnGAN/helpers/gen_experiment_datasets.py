@@ -230,7 +230,7 @@ def xr_standardize_array(da: xr.DataArray) -> xr.DataArray:
     """
     mean = da.mean(skipna=True)
     std = da.std(skipna=True)
-    da2 = (da - mean)/std**2
+    da2 = (da - mean)/(std*2)
     print(da2.std(skipna=True))
     return da2
 
@@ -238,6 +238,7 @@ def xr_standardize_all(data_dict: dict) -> dict:
     """
     Standardizes the data arrays in the dictionary.
     """
+    print(data_dict.keys())
     for key in data_dict:
         ##print(data_dict[key])
         # Binary land mask does not need normalization
@@ -274,7 +275,7 @@ def generate_train_test_coarse_fine():
     cov_paths_dict = config.cov_paths_dict
 
     fine_xr_dict = load_fine(config.fine_paths_dict)
-    fine_xr_dict = xr_standardize_all(fine_xr_dict)
+    #fine_xr_dict = xr_standardize_all(fine_xr_dict)
     fine = concat_data_arrays(fine_xr_dict, config.fine_names_ordered)
 
     coarse_xr_dict = load_covariates_test(cov_paths_dict, fine)
