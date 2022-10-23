@@ -274,7 +274,7 @@ def generate_train_test_coarse_fine():
     fine_xr_dict = xr_standardize_all(fine_xr_dict)
     fine = concat_data_arrays(fine_xr_dict, config.fine_names_ordered)
 
-    coarse_xr_dict = load_covariates(cov_paths_dict, fine)
+    coarse_xr_dict = load_covariates_test(cov_paths_dict, fine)
     coarse_xr_dict = xr_standardize_all(coarse_xr_dict)
     # Chooese reference dataset to define lat and lon
     coarse = concat_data_arrays(coarse_xr_dict, config.covariate_names_ordered)
