@@ -15,16 +15,16 @@ import os
 # Hyper params
 gp_lambda = 10
 critic_iterations = 5
-batch_size = 32
+batch_size = 1024
 gamma = 0.01
 content_lambda = 5
 ncomp = 75
 lr = 0.00025
 
 # Run configuration parameters
-epochs = 1000
-print_every = 250
-save_every = 250
+epochs = 500
+print_every = 10
+save_every = 100
 use_cuda = True
 
 # Frequency separation parameters
@@ -38,6 +38,6 @@ rf = nn.ReplicationPad2d(padding)
 metrics_to_calculate = {
     "MAE": content_loss,
     "MSE": content_MSELoss,
-    "MSSSIM": SSIM_Loss,
+    ##"MSSSIM": SSIM_Loss,
     "Wass": wass_loss
 }

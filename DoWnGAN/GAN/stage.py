@@ -25,10 +25,10 @@ if config.already_preprocessed:
 
 # Convert to tensors
 print("Loading region into memory...")
-coarse_train = torch.from_numpy(coarse_train.to_array().to_numpy()).transpose(0, 1).to(config.device)
-fine_train = torch.from_numpy(fine_train.to_array().to_numpy()).transpose(0, 1).to(config.device)
-coarse_test = torch.from_numpy(coarse_test.to_array().to_numpy()).transpose(0, 1).to(config.device)
-fine_test = torch.from_numpy(fine_test.to_array().to_numpy()).transpose(0, 1).to(config.device)
+coarse_train = torch.from_numpy(coarse_train.to_array().to_numpy()).transpose(0, 1).to(config.device).float()
+fine_train = torch.from_numpy(fine_train.to_array().to_numpy()).transpose(0, 1).to(config.device).float()
+coarse_test = torch.from_numpy(coarse_test.to_array().to_numpy()).transpose(0, 1).to(config.device).float()
+fine_test = torch.from_numpy(fine_test.to_array().to_numpy()).transpose(0, 1).to(config.device).float()
 
 class StageData:
     def __init__(self, ):

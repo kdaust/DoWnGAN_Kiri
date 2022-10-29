@@ -83,12 +83,13 @@ non_standard_attributes = {
 
 # Covariate paths list
 cov_paths_dict = {
-    "u10": COVARIATE_DATA_PATH+"/U10_ERA_Final.nc",
-    "v10": COVARIATE_DATA_PATH+"/V10_ERA_Final.nc",
+    "u10": COVARIATE_DATA_PATH+"/U10_Stand.nc",
+    "v10": COVARIATE_DATA_PATH+"/V10_Stand.nc",
     "land_sea_mask": COVARIATE_DATA_PATH+"/LSM_Crop.nc",
     "surface_pressure": COVARIATE_DATA_PATH+"/ps_stand.nc",
     "surface_roughness": COVARIATE_DATA_PATH+"/Rough_Stand.nc",
     "geopotential": COVARIATE_DATA_PATH+"/GPOT_Stand.nc",
+
 }
 
 # Common names ordered, Just add variables into this dictionary when extending.
@@ -118,6 +119,6 @@ regions = {
     "central": {"lat_min": 30, "lat_max": 46, "lon_min": 50, "lon_max": 66},
     "central_larger": {"lat_min": 9, "lat_max": 47, "lon_min": 29, "lon_max": 67},
     "west": {"lat_min": 30, "lat_max": 46, "lon_min": 15, "lon_max": 31},
-    "kiri_test": {"lat_min": 1, "lat_max": 20, "lon_min": 1, "lon_max": 20}
+    "kiri_test": {"lat_min": 2, "lat_max": 40, "lon_min": 2, "lon_max": 19}
 }
 
