@@ -6,8 +6,8 @@ from datetime import datetime
 import torch
 
 # Path to HR data. Files are organized by variable and are loaded by xarray.open_mfdataset()
-FINE_DATA_PATH_U10 = '~/Masters/Data/WRF/U10_WRF.nc'
-FINE_DATA_PATH_V10 = '~/Masters/Data/WRF/V10_WRF.nc'
+FINE_DATA_PATH_U10 = '~/Masters/Data/WRF/U10_WRF2.nc'
+FINE_DATA_PATH_V10 = '~/Masters/Data/WRF/V10_WRF2.nc'
 # Root dir for the covariates. Individual files defined below
 COVARIATE_DATA_PATH = '~/Masters/Data/Era5/'
 # Where you want the processed data
@@ -28,7 +28,7 @@ device = torch.device("cuda:0")
 # One of florida, west, or central
 # region = "florida"
 region = "kiri_test"
-invariant_fields = []
+invariant_fields = ["land_sea_mask", "geopotential", "surface_roughness"]
 
 # Choose a reference field
 ref_coarse = "u10"
@@ -85,6 +85,10 @@ non_standard_attributes = {
 cov_paths_dict = {
     "u10": COVARIATE_DATA_PATH+"/U10_ERA_Final.nc",
     "v10": COVARIATE_DATA_PATH+"/V10_ERA_Final.nc",
+    "land_sea_mask": COVARIATE_DATA_PATH+"/LSM_Crop.nc",
+    "surface_pressure": COVARIATE_DATA_PATH+"/ps_stand.nc",
+    "surface_roughness": COVARIATE_DATA_PATH+"/Rough_Stand.nc",
+    "geopotential": COVARIATE_DATA_PATH+"/GPOT_Stand.nc",
 }
 
 # Common names ordered, Just add variables into this dictionary when extending.
@@ -92,6 +96,15 @@ covariate_names_ordered = {
     # Standard name: variable name in netcdf
     "u10": 'u10',
     "v10": "v10",
+    "land_sea_mask": "LSM",
+    "land_sea_mask": "lsm",
+    "surface_pressure": "sp",
+    "surface_pressure": "ps",
+    "surface_roughness": "sr",
+    "surface_roughness": "ISOR",
+    "geopotential": "z",
+    "geopotential": "Z",
+    "cape": "cape"
 }
 
 fine_names_ordered = {"u10": "u10", "v10": "v10"}

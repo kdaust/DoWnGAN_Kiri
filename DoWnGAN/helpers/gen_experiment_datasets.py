@@ -47,14 +47,14 @@ def standardize_attribute_names(ds: xr.Dataset) -> xr.Dataset:
     return ds
 
 
-def extend_along_time(da: xr.DataArray) -> xr.DataArray:
+def extend_along_time(da: xr.DataArray, tm: xr.DataArray) -> xr.DataArray:
     """
     Extends the data array along the time dimension to match
     a reference dataset for time invariant fields.
     """
     print("Extending on the time dimension...")
-    list_times = [da for _ in config.range_datetimes]
-    da_ext = xr.concat(list_times, dim="time").assign_coords({"time": config.range_datetimes})
+    list_times = [da for _ in tm]
+    da_ext = xr.concat(list_times, dim="time").assign_coords({"time": tm})
 
     return da_ext
 
@@ -142,7 +142,7 @@ def load_covariates(path_dict: dict, ref_dataset: xr.Dataset) -> dict:
 
         if key in config.invariant_fields:
             print("Invariant field: ", key)
-            datasets_dict[key] = extend_along_time(datasets_dict[key])
+            datasets_dict[key] = extend_along_time(datasets_dict[key],ref_dataset.time)
             print(datasets_dict[key])
 
     ref_coarse = datasets_dict[config.ref_coarse]
@@ -168,13 +168,18 @@ def load_covariates_test(path_dict: dict, ref_dataset: xr.Dataset) -> dict:
         ds = standardize_attribute_names(ds)
 
         ds = ds.sortby("lat", ascending=True)
-        print(ds)
+        #print(ds)
         datasets_dict[key] = ds[config.covariate_names_ordered[key]]
 
         datasets_dict[key] = crop_dataset(datasets_dict[key], 1)
 
     ##print(datasets_dict.keys())
     ##sys.exit()
+        if key in config.invariant_fields:
+            print("Invariant field: ", key)
+            datasets_dict[key] = extend_along_time(datasets_dict[key],ref_dataset.time)
+            print(datasets_dict[key])
+
     ref_coarse = datasets_dict[config.ref_coarse]
     for key in datasets_dict:
         datasets_dict[key] = datasets_dict[key].assign_coords({"time": ref_coarse.time, "lat": ref_coarse.lat, "lon": ref_coarse.lon})
@@ -279,7 +284,7 @@ def generate_train_test_coarse_fine():
     fine = concat_data_arrays(fine_xr_dict, config.fine_names_ordered)
 
     coarse_xr_dict = load_covariates_test(cov_paths_dict, fine)
-    coarse_xr_dict = xr_standardize_all(coarse_xr_dict)
+    #coarse_xr_dict = xr_standardize_all(coarse_xr_dict)
     # Chooese reference dataset to define lat and lon
     coarse = concat_data_arrays(coarse_xr_dict, config.covariate_names_ordered)
 
