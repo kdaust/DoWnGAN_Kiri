@@ -6,8 +6,8 @@ from datetime import datetime
 import torch
 
 # Path to HR data. Files are organized by variable and are loaded by xarray.open_mfdataset()
-FINE_DATA_PATH_U10 = '~/Masters/Data/WRF/U10_WRF.nc'
-FINE_DATA_PATH_V10 = '~/Masters/Data/WRF/V10_WRF.nc'
+FINE_DATA_PATH_U10 = '~/Masters/Data/WRF/U10_WRF2.nc'
+FINE_DATA_PATH_V10 = '~/Masters/Data/WRF/V10_WRF2.nc'
 # Root dir for the covariates. Individual files defined below
 COVARIATE_DATA_PATH = '~/Masters/Data/Era5/'
 # Where you want the processed data
@@ -83,8 +83,8 @@ non_standard_attributes = {
 
 # Covariate paths list
 cov_paths_dict = {
-    "u10": COVARIATE_DATA_PATH+"/U10_ERA_Final.nc",
-    "v10": COVARIATE_DATA_PATH+"/V10_ERA_Final.nc",
+    "u10": COVARIATE_DATA_PATH+"/U10_ERA2.nc",
+    "v10": COVARIATE_DATA_PATH+"/V10_ERA2.nc",
 }
 
 # Common names ordered, Just add variables into this dictionary when extending.
@@ -105,6 +105,6 @@ regions = {
     "central": {"lat_min": 30, "lat_max": 46, "lon_min": 50, "lon_max": 66},
     "central_larger": {"lat_min": 9, "lat_max": 47, "lon_min": 29, "lon_max": 67},
     "west": {"lat_min": 30, "lat_max": 46, "lon_min": 15, "lon_max": 31},
-    "kiri_test": {"lat_min": 1, "lat_max": 20, "lon_min": 1, "lon_max": 20}
+    "kiri_test": {"lat_min": 2, "lat_max": 40, "lon_min": 2, "lon_max": 19}
 }
 
