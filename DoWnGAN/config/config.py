@@ -98,14 +98,9 @@ covariate_names_ordered = {
     "u10": 'u10',
     "v10": "v10",
     "land_sea_mask": "LSM",
-    "land_sea_mask": "lsm",
-    "surface_pressure": "sp",
     "surface_pressure": "ps",
-    "surface_roughness": "sr",
     "surface_roughness": "ISOR",
-    "geopotential": "z",
     "geopotential": "Z",
-    "cape": "cape"
 }
 
 fine_names_ordered = {"u10": "u10", "v10": "v10"}
