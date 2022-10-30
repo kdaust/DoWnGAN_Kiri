@@ -83,12 +83,12 @@ non_standard_attributes = {
 
 # Covariate paths list
 cov_paths_dict = {
-    "u10": COVARIATE_DATA_PATH+"/U10_Stand.nc",
-    "v10": COVARIATE_DATA_PATH+"/V10_Stand.nc",
-    "land_sea_mask": COVARIATE_DATA_PATH+"/LSM_Crop.nc",
-    "surface_pressure": COVARIATE_DATA_PATH+"/ps_stand.nc",
-    "surface_roughness": COVARIATE_DATA_PATH+"/Rough_Stand.nc",
-    "geopotential": COVARIATE_DATA_PATH+"/GPOT_Stand.nc",
+    "u10": COVARIATE_DATA_PATH+"/U10LR.nc",
+    "v10": COVARIATE_DATA_PATH+"/V10LR.nc",
+    "land_sea_mask": COVARIATE_DATA_PATH+"/LSMLR.nc",
+    "surface_pressure": COVARIATE_DATA_PATH+"/PSLR.nc",
+    "surface_roughness": COVARIATE_DATA_PATH+"/RoughLR.nc",
+    "geopotential": COVARIATE_DATA_PATH+"/GPOTLR.nc",
 
 }
 
