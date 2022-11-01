@@ -16,13 +16,15 @@ def define_experiment(mlclient):
     [print(exp.experiment_id,":", exp.name) for i, exp in enumerate(mlclient.list_experiments())]
     again = False
     while not again:
-        choice = input("Input number here: ")
+       # choice = input("Input number here: ")
+	choice = "n"
         if choice == "n":
             g = True
             while g:
-                set_exp = input("Enter new descriptive experiment name ")
-                confirm = input(f"You entered {set_exp}. Happy? (Y/n) ")
-                if confirm in ["Y", '']:
+                set_exp = "Test_experiment"
+		confirm = input(f"You entered {set_exp}. Happy? (Y/n) ")
+                g = False
+		if confirm in ["Y", '']:
                     mlclient.create_experiment(set_exp)
                     g = False
             again = True
@@ -44,7 +46,7 @@ def define_experiment(mlclient):
 def write_tags():
     g = True
     while g:
-        choice = input("Describe the specifics and purpose of this training run: ")
+        choice = "Let's see  if this works"
         confirm = input(f"You entered {choice}. Happy? (Y/n) ")
         if confirm in ["Y", '']:
             g = False

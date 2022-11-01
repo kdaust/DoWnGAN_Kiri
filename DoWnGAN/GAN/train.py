@@ -8,6 +8,8 @@ from DoWnGAN.mlflow_tools.mlflow_utils import log_hyperparams
 import mlflow
 import torch
 import subprocess
+import sys
+#sys.stderr = open('errors.txt','w')
 
 def train():
     s = StageData()
