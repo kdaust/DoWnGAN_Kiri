@@ -6,10 +6,11 @@ from datetime import datetime
 import torch
 
 # Path to HR data. Files are organized by variable and are loaded by xarray.open_mfdataset()
-FINE_DATA_PATH_U10 = '~/Masters/Data/WRF/U10HR.nc'
-FINE_DATA_PATH_V10 = '~/Masters/Data/WRF/V10HR.nc'
+#FINE_DATA_PATH_U10 = '~/Masters/Data/WRF/U10HR.nc'
+#FINE_DATA_PATH_V10 = '~/Masters/Data/WRF/V10HR.nc'
 # Root dir for the covariates. Individual files defined below
-COVARIATE_DATA_PATH = '~/Masters/Data/Era5/'
+COVARIATE_DATA_PATH = '~/Masters/Data/FineCovs'
+FINE_DATA_PATH = "~/Masters/Data/FineCovs"
 # Where you want the processed data
 PROC_DATA = '~/Masters/Processed'
 
@@ -28,7 +29,7 @@ device = torch.device("cuda:0")
 # One of florida, west, or central
 # region = "florida"
 region = "kiri_test"
-invariant_fields = ["land_sea_mask", "geopotential", "surface_roughness"]
+invariant_fields = ["land_sea_mask", "geopotential"]
 
 # Choose a reference field
 ref_coarse = "u10"
@@ -37,7 +38,7 @@ ref_coarse = "u10"
 mask_years = [2003]
 
 # Scale factor for the covariates
-scale_factor = 8
+scale_factor = 1
 
 # WRF Time slice
 # Add extra  6 hour step early due to peculiarities in WRF (extra field)
@@ -63,8 +64,8 @@ It uses paths defined in config.py
 # Variables in HR fields, and paths to those netcdfs
 # This assumes they are separate files
 fine_paths_dict = {
-    "u10": FINE_DATA_PATH_U10,
-    "v10": FINE_DATA_PATH_V10
+    "u10": FINE_DATA_PATH + "U10HR.nc",
+    "v10": FINE_DATA_PATH + "V10HR.nc"
 }
 
 
@@ -83,12 +84,12 @@ non_standard_attributes = {
 
 # Covariate paths list
 cov_paths_dict = {
-    "u10": COVARIATE_DATA_PATH+"/U10LR.nc",
-    "v10": COVARIATE_DATA_PATH+"/V10LR.nc",
-    "land_sea_mask": COVARIATE_DATA_PATH+"/LSMLR.nc",
-    "surface_pressure": COVARIATE_DATA_PATH+"/PSLR.nc",
-    "surface_roughness": COVARIATE_DATA_PATH+"/RoughLR.nc",
-    "geopotential": COVARIATE_DATA_PATH+"/GPOTLR.nc",
+    "u10": COVARIATE_DATA_PATH+"/U10LR_Bic.nc",
+    "v10": COVARIATE_DATA_PATH+"/V10LR_Bic.nc",
+    "land_sea_mask": COVARIATE_DATA_PATH+"/LSM.nc",
+    "surface_pressure": COVARIATE_DATA_PATH+"/PSLR_Bic.nc",
+    #"surface_roughness": COVARIATE_DATA_PATH+"/RoughLR.nc",
+    "geopotential": COVARIATE_DATA_PATH+"/DEM_ST.nc",
 
 }
 
@@ -99,8 +100,9 @@ covariate_names_ordered = {
     "v10": "v10",
     "land_sea_mask": "LSM",
     "surface_pressure": "ps",
-    "surface_roughness": "ISOR",
-    "geopotential": "Z",
+    #"surface_roughness": "ISOR",
+    #"geopotential": "Z",
+    "geopotential": "HGT",
 }
 
 fine_names_ordered = {"u10": "u10", "v10": "v10"}
@@ -114,6 +116,6 @@ regions = {
     "central": {"lat_min": 30, "lat_max": 46, "lon_min": 50, "lon_max": 66},
     "central_larger": {"lat_min": 9, "lat_max": 47, "lon_min": 29, "lon_max": 67},
     "west": {"lat_min": 30, "lat_max": 46, "lon_min": 15, "lon_max": 31},
-    "kiri_test": {"lat_min": 0, "lat_max": 16, "lon_min": 0, "lon_max": 16}
+    "kiri_test": {"lat_min": 0, "lat_max": 128, "lon_min": 0, "lon_max": 128}
 }
 
