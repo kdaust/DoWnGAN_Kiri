@@ -66,7 +66,7 @@ It uses paths defined in config.py
 fine_paths_dict = {
     "u10": FINE_DATA_PATH + "/U10HR.nc",
     "v10": FINE_DATA_PATH + "/V10HR.nc",
-    "geopotential": FINE_DATA_PATH + "/DEM_ST.nc"
+    "geopotential": FINE_DATA_PATH + "/DEM_Final.nc"
 }
 
 
@@ -87,10 +87,10 @@ non_standard_attributes = {
 cov_paths_dict = {
     "u10": COVARIATE_DATA_PATH+"/U10LR_Bic.nc",
     "v10": COVARIATE_DATA_PATH+"/V10LR_Bic.nc",
-    "land_sea_mask": COVARIATE_DATA_PATH+"/LSM.nc",
+    #"land_sea_mask": COVARIATE_DATA_PATH+"/LSM.nc",
     "surface_pressure": COVARIATE_DATA_PATH+"/PSLR_Bic.nc",
     #"surface_roughness": COVARIATE_DATA_PATH+"/RoughLR.nc",
-    "geopotential": COVARIATE_DATA_PATH+"/DEM_ST.nc",
+    "geopotential": COVARIATE_DATA_PATH+"/DEM_Final.nc",
 
 }
 
