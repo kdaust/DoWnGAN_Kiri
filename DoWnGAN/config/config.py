@@ -64,8 +64,9 @@ It uses paths defined in config.py
 # Variables in HR fields, and paths to those netcdfs
 # This assumes they are separate files
 fine_paths_dict = {
-    "u10": FINE_DATA_PATH + "U10HR.nc",
-    "v10": FINE_DATA_PATH + "V10HR.nc"
+    "u10": FINE_DATA_PATH + "/U10HR.nc",
+    "v10": FINE_DATA_PATH + "/V10HR.nc",
+    "geopotential": FINE_DATA_PATH + "/DEM_ST.nc"
 }
 
 
@@ -105,7 +106,7 @@ covariate_names_ordered = {
     "geopotential": "HGT",
 }
 
-fine_names_ordered = {"u10": "u10", "v10": "v10"}
+fine_names_ordered = {"u10": "u10", "v10": "v10", "geopotential": "geopotential"}
 
 
 # These define the region indices in the coarse resolution
