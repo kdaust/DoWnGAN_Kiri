@@ -9,6 +9,7 @@ class NetCDFSR(Dataset):
         self,
         coarse: torch.Tensor,
         fine: torch.Tensor,
+        invarient: torch.Tensor,
         device: torch.device,
     ) -> torch.Tensor:
         """
@@ -18,6 +19,7 @@ class NetCDFSR(Dataset):
         """
         self.fine = fine
         self.coarse = coarse
+        self.invarient = invarient
 
     def __len__(self):
         return self.fine.size(0)
@@ -27,7 +29,7 @@ class NetCDFSR(Dataset):
         if torch.is_tensor(idx):
             idx = idx.tolist()
 
-        fine_ = self.fine[idx, ...]
-        coarse_ = self.coarse[idx, ...]
+        fine_ = torch.cat([self.fine[idx, ...],self.invarient],3)
+        coarse_ = torch.cat([self.coarse[idx, ...],self.invarient],3)
 
         return coarse_, fine_
