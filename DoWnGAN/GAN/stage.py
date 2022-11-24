@@ -6,21 +6,28 @@ from DoWnGAN.GAN.dataloader import NetCDFSR
 import DoWnGAN.mlflow_tools.mlflow_utils as mlf 
 import DoWnGAN.config.hyperparams as hp
 from DoWnGAN.config import config
-from DoWnGAN.helpers.gen_experiment_datasets import generate_train_test_coarse_fine, load_preprocessed
+#from DoWnGAN.helpers.gen_experiment_datasets import generate_train_test_coarse_fine, load_preprocessed
+from xarray.core import dataset
+from xarray.core.dataset import Dataset
+import xarray as xr
 
 import torch
 
 from mlflow.tracking import MlflowClient
 
+def load_preprocessed():
+    coarse_train = xr.open_dataset("~/Masters/Data/Test_Upsample/final_data/coarse_train.nc", engine="netcdf4")
+    fine_train = xr.open_dataset("~/Masters/Data/Test_Upsample/final_data/fine_train.nc", engine="netcdf4")
+    coarse_test = xr.open_dataset("~/Masters/Data/Test_Upsample/final_data/coarse_test.nc", engine="netcdf4")
+    fine_test = xr.open_dataset("~/Masters/Data/Test_Upsample/final_data/fine_test.nc", engine="netcdf4")
+    invarient = xr.open_dataset("~/Masters/Data/Test_Upsample/final_data/invarient.nc", engine="netcdf4")
+    return coarse_train, fine_train, coarse_test, fine_test, invarient
 
 
 assert torch.cuda.is_available(), "CUDA not available"
 torch.cuda.empty_cache()
 # Load dataset
-if not config.already_preprocessed:
-    coarse_train, fine_train, coarse_test, fine_test = generate_train_test_coarse_fine()
-if config.already_preprocessed:
-    coarse_train, fine_train, coarse_test, fine_test = load_preprocessed()
+coarse_train, fine_train, coarse_test, fine_test, invarient = load_preprocessed()
 
 
 # Convert to tensors
@@ -29,6 +36,7 @@ coarse_train = torch.from_numpy(coarse_train.to_array().to_numpy()).transpose(0,
 fine_train = torch.from_numpy(fine_train.to_array().to_numpy()).transpose(0, 1).to(config.device).float()
 coarse_test = torch.from_numpy(coarse_test.to_array().to_numpy()).transpose(0, 1).to(config.device).float()
 fine_test = torch.from_numpy(fine_test.to_array().to_numpy()).transpose(0, 1).to(config.device).float()
+invarient = torch.from_numpy(invarient.to_array().to_numpy().squeeze(0)).to(config.device).float()
 
 class StageData:
     def __init__(self, ):
@@ -44,13 +52,14 @@ class StageData:
 
         print("Coarse data shape: ", coarse_train.shape)
         print("Fine data shape: ", fine_train.shape)
+        print("Invarient shape: ", invarient.shape)
 
 
         # Get shapes for networks
         self.fine_dim_n = fine_train.shape[-1]
         self.n_predictands = fine_train.shape[1]
         self.coarse_dim_n = coarse_train.shape[-1]
-        self.n_covariates = coarse_train.shape[1]
+        self.n_covariates = coarse_train.shape[1] + 1##adding invarient
 
         print("Network dimensions: ")
         print("Fine: ", self.fine_dim_n, "x", self.n_predictands)
@@ -70,12 +79,12 @@ class StageData:
         self.tag = mlf.write_tags()
 
         # Definte the dataset objects
-        self.dataset = NetCDFSR(coarse_train, fine_train, device=config.device)
+        self.dataset = NetCDFSR(coarse_train, fine_train, invarient, device=config.device)
         self.dataloader = torch.utils.data.DataLoader(
             dataset=self.dataset, batch_size=hp.batch_size, shuffle=True
         )
 
-        self.testdataset = NetCDFSR(coarse_test, fine_test, device = config.device)
+        self.testdataset = NetCDFSR(coarse_test, fine_test, invarient, device = config.device)
         self.testdataloader = torch.utils.data.DataLoader(
             dataset=self.testdataset, batch_size=hp.batch_size, shuffle=True
         )

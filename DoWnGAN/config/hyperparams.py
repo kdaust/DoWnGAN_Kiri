@@ -15,14 +15,14 @@ import os
 # Hyper params
 gp_lambda = 10
 critic_iterations = 5
-batch_size = 256
+batch_size = 16
 gamma = 0.01
-content_lambda = 0.5
+content_lambda = 5
 ncomp = 75
 lr = 0.00025
 
 # Run configuration parameters
-epochs = 1000
+epochs = 500
 print_every = 10
 save_every = 100
 use_cuda = True

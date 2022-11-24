@@ -3,14 +3,19 @@
 
 import nctoolkit as nc
 import numpy as np
-import maplotlib.pylot as plt
+import matplotlib.pyplot as plt
 
-dat = nc.open_data("Test.nc")
+infile = 'U10_remap.nc'
+dat = nc.open_data(infile)
 dat.start
 
 dat.tmean("time")
+dat.run()
+dat.tmean("time")
 dat.spatial_mean()
 dat.assign(mean = lambda x: x.u10 - nc.spatial_mean(x.u10))
+
+nc.cdo_version()
 
 ### merge WRF
 ### crop time
