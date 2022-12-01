@@ -13,11 +13,11 @@ def log_hyperparams():
 def define_experiment(mlclient):
     print("Enter the experiment name you wish to add the preceding training run to.")
     print("Select number from list or press n for new experiment: ")
-    [print(exp.experiment_id,":", exp.name) for i, exp in enumerate(mlclient.list_experiments())]
+    #[print(exp.experiment_id,":", exp.name) for i, exp in enumerate(mlclient.list_experiments())]
     set_exp = "Test_Experiment"
     #mlclient.create_experiment(set_exp)
     return mlclient.get_experiment_by_name(set_exp).experiment_id
 
 def write_tags():
-    choice = "Testing all fine"
+    choice = "Testing 1.5 deg area w coarse covars"
     return choice

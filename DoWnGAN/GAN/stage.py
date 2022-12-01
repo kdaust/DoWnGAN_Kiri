@@ -16,11 +16,11 @@ import torch
 from mlflow.tracking import MlflowClient
 
 def load_preprocessed():
-    coarse_train = xr.open_dataset("~/Masters/Data/Test_Upsample/final_data/coarse_train.nc", engine="netcdf4")
-    fine_train = xr.open_dataset("~/Masters/Data/Test_Upsample/final_data/fine_train.nc", engine="netcdf4")
-    coarse_test = xr.open_dataset("~/Masters/Data/Test_Upsample/final_data/coarse_test.nc", engine="netcdf4")
-    fine_test = xr.open_dataset("~/Masters/Data/Test_Upsample/final_data/fine_test.nc", engine="netcdf4")
-    invarient = xr.open_dataset("~/Masters/Data/Test_Upsample/final_data/invarient.nc", engine="netcdf4")
+    coarse_train = xr.open_dataset("~/Masters/Data/Test_Upsample/coarse_input/coarse_train_tpe2.nc", engine="netcdf4")
+    fine_train = xr.open_dataset("~/Masters/Data/Test_Upsample/coarse_input/fine_train_small.nc", engine="netcdf4")
+    coarse_test = xr.open_dataset("~/Masters/Data/Test_Upsample/coarse_input/coarse_test_tpe2.nc", engine="netcdf4")
+    fine_test = xr.open_dataset("~/Masters/Data/Test_Upsample/coarse_input/fine_test_small.nc", engine="netcdf4")
+    invarient = xr.open_dataset("~/Masters/Data/Test_Upsample/coarse_input/invarient_tpe2.nc", engine="netcdf4")
     return coarse_train, fine_train, coarse_test, fine_test, invarient
 
 
@@ -37,7 +37,7 @@ fine_train = torch.from_numpy(fine_train.to_array().to_numpy()).transpose(0, 1).
 coarse_test = torch.from_numpy(coarse_test.to_array().to_numpy()).transpose(0, 1).to(config.device).float()
 fine_test = torch.from_numpy(fine_test.to_array().to_numpy()).transpose(0, 1).to(config.device).float()
 invarient = torch.from_numpy(invarient.to_array().to_numpy().squeeze(0)).to(config.device).float()
-
+print("Yep this works...")
 class StageData:
     def __init__(self, ):
 

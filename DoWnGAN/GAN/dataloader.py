@@ -29,7 +29,7 @@ class NetCDFSR(Dataset):
         if torch.is_tensor(idx):
             idx = idx.tolist()
 
-        fine_ = torch.cat([self.fine[idx, ...],self.invarient],0)
+        fine_ = self.fine[idx, ...]
         coarse_ = torch.cat([self.coarse[idx, ...],self.invarient],0)
         # print(self.fine[idx,...])
         # print(self.invarient)

@@ -9,8 +9,8 @@ import torch
 #FINE_DATA_PATH_U10 = '~/Masters/Data/WRF/U10HR.nc'
 #FINE_DATA_PATH_V10 = '~/Masters/Data/WRF/V10HR.nc'
 # Root dir for the covariates. Individual files defined below
-COVARIATE_DATA_PATH = '~/Masters/Data/FineCovs'
-FINE_DATA_PATH = "~/Masters/Data/FineCovs"
+COVARIATE_DATA_PATH = '~/Masters/Data/Test_Upsample/final_data'
+FINE_DATA_PATH = '~/Masters/Data/Test_Upsample/final_data'
 # Where you want the processed data
 PROC_DATA = '~/Masters/Processed'
 
@@ -38,7 +38,7 @@ ref_coarse = "u10"
 mask_years = [2003]
 
 # Scale factor for the covariates
-scale_factor = 1
+scale_factor = 8
 
 # WRF Time slice
 # Add extra  6 hour step early due to peculiarities in WRF (extra field)
