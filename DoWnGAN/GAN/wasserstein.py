@@ -24,7 +24,7 @@ class WassersteinGAN:
         self.C_optimizer = C_optimizer
         self.num_steps = 0
         
-    def _critic_train_iteration(self, coarse, fine):
+    def _critic_train_iteration(self, coarse, fine, invariant):
         """
         Performs one iteration of the critic training.
         Args:
@@ -32,10 +32,12 @@ class WassersteinGAN:
             fine (torch.Tensor): The fine input.
         """
 
-        fake = self.G(coarse)
-
-        c_real = self.C(fine)
-        c_fake = self.C(fake)
+        fake = self.G(coarse) ##generate fake image from generator
+        print(fake.shape)
+        print(invariant.shape)
+        fake = torch.cat([fake,invariant],3)
+        c_real = self.C(fine) ##make prediction for real image
+        c_fake = self.C(fake) ##make prediction for generated image
 
         gradient_penalty = hp.gp_lambda * self._gp(fine, fake, self.C)
 
@@ -47,7 +49,7 @@ class WassersteinGAN:
         c_fake_mean = torch.mean(c_fake)
 
         critic_loss = c_fake_mean - c_real_mean + gradient_penalty
-        w_estimate = c_real_mean - c_fake_mean
+        w_estimate = c_real_mean - c_fake_mean ##may have to adjust thsi
 
         critic_loss.backward(retain_graph = True)
 
@@ -131,7 +133,8 @@ class WassersteinGAN:
         for data in dataloader:
             coarse = data[0].to(config.device)
             fine = data[1].to(config.device)
-            self._critic_train_iteration(coarse, fine)
+            invariant = data[2].to(config.device)
+            self._critic_train_iteration(coarse, fine, invariant)
 
             if self.num_steps%hp.critic_iterations == 0:
                 self._generator_train_iteration(coarse, fine)

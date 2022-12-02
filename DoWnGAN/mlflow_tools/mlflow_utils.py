@@ -19,5 +19,5 @@ def define_experiment(mlclient):
     return mlclient.get_experiment_by_name(set_exp).experiment_id
 
 def write_tags():
-    choice = "Testing 1.5 deg area w coarse covars"
+    choice = "Testing 1.5 deg area w fine covars in both generator and discriminator"
     return choice

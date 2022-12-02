@@ -38,7 +38,7 @@ ref_coarse = "u10"
 mask_years = [2003]
 
 # Scale factor for the covariates
-scale_factor = 8
+scale_factor = 1
 
 # WRF Time slice
 # Add extra  6 hour step early due to peculiarities in WRF (extra field)

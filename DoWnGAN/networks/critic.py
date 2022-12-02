@@ -94,6 +94,7 @@ class Critic(nn.Module):
         self.classifier = nn.Sequential(
             nn.Linear(int((self.coarse_dim*2**3)*(self.fine_dim/2**4)**2), 100),
             # nn.Linear(32*24 * self.coarse_dim, 100),
+            #nn.Linear(int(221184), 100),
             nn.LeakyReLU(negative_slope=0.2, inplace=True),
             nn.Linear(100, 1),
         )
@@ -101,6 +102,8 @@ class Critic(nn.Module):
     def forward(self, input: torch.Tensor) -> torch.Tensor:
         out = self.features(input)
         out = torch.flatten(out, 1)
+        print("Dim = ")
+        print(out.size())
         out = self.classifier(out)
 
         return out

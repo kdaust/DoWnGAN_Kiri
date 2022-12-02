@@ -16,11 +16,16 @@ import torch
 from mlflow.tracking import MlflowClient
 
 def load_preprocessed():
-    coarse_train = xr.open_dataset("~/Masters/Data/Test_Upsample/coarse_input/coarse_train_tpe2.nc", engine="netcdf4")
-    fine_train = xr.open_dataset("~/Masters/Data/Test_Upsample/coarse_input/fine_train_small.nc", engine="netcdf4")
-    coarse_test = xr.open_dataset("~/Masters/Data/Test_Upsample/coarse_input/coarse_test_tpe2.nc", engine="netcdf4")
-    fine_test = xr.open_dataset("~/Masters/Data/Test_Upsample/coarse_input/fine_test_small.nc", engine="netcdf4")
-    invarient = xr.open_dataset("~/Masters/Data/Test_Upsample/coarse_input/invarient_tpe2.nc", engine="netcdf4")
+    # coarse_train = xr.open_dataset("~/Masters/Data/Test_Upsample/coarse_input/coarse_train_tpe2.nc", engine="netcdf4")
+    # fine_train = xr.open_dataset("~/Masters/Data/Test_Upsample/coarse_input/fine_train_small.nc", engine="netcdf4")
+    # coarse_test = xr.open_dataset("~/Masters/Data/Test_Upsample/coarse_input/coarse_test_tpe2.nc", engine="netcdf4")
+    # fine_test = xr.open_dataset("~/Masters/Data/Test_Upsample/coarse_input/fine_test_small.nc", engine="netcdf4")
+    # invarient = xr.open_dataset("~/Masters/Data/Test_Upsample/coarse_input/invarient_tpe2.nc", engine="netcdf4")
+    coarse_train = xr.open_dataset("~/Masters/Data/Test_Upsample/final_data/coarse_train_small.nc", engine="netcdf4")
+    fine_train = xr.open_dataset("~/Masters/Data/Test_Upsample/final_data/fine_train_small.nc", engine="netcdf4")
+    coarse_test = xr.open_dataset("~/Masters/Data/Test_Upsample/final_data/coarse_test_small.nc", engine="netcdf4")
+    fine_test = xr.open_dataset("~/Masters/Data/Test_Upsample/final_data/fine_test_small.nc", engine="netcdf4")
+    invarient = xr.open_dataset("~/Masters/Data/Test_Upsample/final_data/invarient_small.nc", engine="netcdf4")
     return coarse_train, fine_train, coarse_test, fine_test, invarient
 
 
@@ -57,7 +62,7 @@ class StageData:
 
         # Get shapes for networks
         self.fine_dim_n = fine_train.shape[-1]
-        self.n_predictands = fine_train.shape[1]
+        self.n_predictands = fine_train.shape[1] + 1 ##adding invariant
         self.coarse_dim_n = coarse_train.shape[-1]
         self.n_covariates = coarse_train.shape[1] + 1##adding invarient
 
