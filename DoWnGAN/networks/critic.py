@@ -102,8 +102,6 @@ class Critic(nn.Module):
     def forward(self, input: torch.Tensor) -> torch.Tensor:
         out = self.features(input)
         out = torch.flatten(out, 1)
-        print("Dim = ")
-        print(out.size())
         out = self.classifier(out)
 
         return out

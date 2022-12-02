@@ -1,0 +1,12 @@
+{
+  "ExpandedNodes": [
+    "",
+    "\\config",
+    "\\GAN",
+    "\\helpers",
+    "\\mlflow_tools",
+    "\\networks"
+  ],
+  "SelectedNode": "\\GAN\\dataloader.py",
+  "PreviewInSolutionExplorer": false
+}

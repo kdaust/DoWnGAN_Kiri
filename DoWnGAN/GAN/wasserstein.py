@@ -35,7 +35,7 @@ class WassersteinGAN:
         fake = self.G(coarse) ##generate fake image from generator
         print(fake.shape)
         print(invariant.shape)
-        fake = torch.cat([fake,invariant],3)
+        fake = torch.cat([fake,invariant],1)
         c_real = self.C(fine) ##make prediction for real image
         c_fake = self.C(fake) ##make prediction for generated image
 
