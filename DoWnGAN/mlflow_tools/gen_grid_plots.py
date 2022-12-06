@@ -6,7 +6,7 @@ import DoWnGAN.config.hyperparams as hp
 from DoWnGAN.config import config
 import mlflow
 
-def gen_grid_images(G, coarse, real, epoch, train_test):
+def gen_grid_images(G, coarse, invariant, real, epoch, train_test):
     """
     Plots a grid of images and saves them to file
     Args:
@@ -16,7 +16,7 @@ def gen_grid_images(G, coarse, real, epoch, train_test):
     """
     torch.manual_seed(0)
     random = torch.randint(0, hp.batch_size, (20, ))
-    fake = G(coarse[random, ...].to(config.device))
+    fake = G(coarse[random, ...].to(config.device), invariant.to(config.device))
     coarse = torchvision.utils.make_grid(
         coarse[random, ...],
         nrow=10,

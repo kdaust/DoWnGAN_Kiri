@@ -50,8 +50,8 @@ def post_epoch_metric_mean(d, train_test):
     log_to_file(means, train_test)
 
 
-def gen_batch_and_log_metrics(G, C, coarse, real, d):
-    fake = G(coarse).detach()
+def gen_batch_and_log_metrics(G, C, coarse, real, invariant, d):
+    fake = G(coarse,invariant).detach()
     creal = torch.mean(C(real)).detach()
     cfake = torch.mean(C(fake)).detach()
 
