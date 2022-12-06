@@ -81,9 +81,9 @@ class Generator(nn.Module):
         # Final output block
         self.conv3 = nn.Sequential(
             nn.Conv2d(fine_dims + filters, fine_dims, kernel_size=1, stride=1, padding=1), ##pointwise convolution
-            nn.Conv2d(fine_dims, fine_dims, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(fine_dims, filters, kernel_size=3, stride=1, padding=1),
             nn.LeakyReLU(),
-            nn.Conv2d(fine_dims, n_predictands, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(filters, n_predictands, kernel_size=3, stride=1, padding=1),
         )
 
     def forward(self, x_coarse, x_fine):
