@@ -36,7 +36,9 @@ class WassersteinGAN:
         #print(fake.shape)
         #print(invariant.shape)
         #fake = torch.cat([fake,invariant],1)
+        print(fine.size())
         c_real = self.C(fine) ##make prediction for real image
+        print(fake.size())
         c_fake = self.C(fake) ##make prediction for generated image
 
         gradient_penalty = hp.gp_lambda * self._gp(fine, fake, self.C)
