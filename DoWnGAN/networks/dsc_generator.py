@@ -57,12 +57,12 @@ class ResidualInResidualDenseBlock(nn.Module):
 
 class Generator(nn.Module):
     # coarse_dim_n, fine_dim_n, n_covariates, n_predictands
-    def __init__(self, filters, fine_dims, channels_coarse, channels_fine, n_predictands=2, num_res_blocks=16, num_upsample=3):
+    def __init__(self, filters, fine_dims, channels_coarse, channels_invariant, n_predictands=2, num_res_blocks=16, num_upsample=3):
         super(Generator, self).__init__()
 
         # First layer
         self.conv1 = nn.Conv2d(channels_coarse, filters, kernel_size=3, stride=1, padding=1)
-        self.conv1f = nn.Conv2d(channels_fine, fine_dims, kernel_size=3, stride=1, padding=1)
+        self.conv1f = nn.Conv2d(channels_invariant, fine_dims, kernel_size=3, stride=1, padding=1)
         # Residual blocks
         self.res_blocks = nn.Sequential(*[ResidualInResidualDenseBlock(filters) for _ in range(num_res_blocks)])
         self.res_blocksf = nn.Sequential(*[ResidualInResidualDenseBlock(fine_dims) for _ in range(num_res_blocks)])

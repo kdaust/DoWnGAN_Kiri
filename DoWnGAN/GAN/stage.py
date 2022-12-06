@@ -65,13 +65,15 @@ class StageData:
         self.n_predictands = fine_train.shape[1] ##adding invariant
         self.coarse_dim_n = coarse_train.shape[-1]
         self.n_covariates = coarse_train.shape[1]##adding invarient
+        self.n_invariant = invarient.shape[1]
 
         print("Network dimensions: ")
         print("Fine: ", self.fine_dim_n, "x", self.n_predictands)
         print("Coarse: ", self.coarse_dim_n, "x", self.n_covariates)
+        print("Invariant: ", self.fine_dim_n, "x", self.n_invariant)
 
         self.critic = Critic(self.coarse_dim_n, self.fine_dim_n, self.n_predictands).to(config.device)
-        self.generator = Generator(self.coarse_dim_n, self.fine_dim_n, self.n_covariates, self.n_predictands, self.n_predictands).to(config.device)
+        self.generator = Generator(self.coarse_dim_n, self.fine_dim_n, self.n_covariates, self.n_invariant, self.n_predictands).to(config.device)
 
         # Define optimizers
         self.G_optimizer = torch.optim.Adam(self.generator.parameters(), hp.lr, betas=(0.9, 0.99))
