@@ -32,10 +32,10 @@ class WassersteinGAN:
             fine (torch.Tensor): The fine input.
         """
 
-        fake = self.G(coarse) ##generate fake image from generator
-        print(fake.shape)
-        print(invariant.shape)
-        fake = torch.cat([fake,invariant],1)
+        fake = self.G(coarse, invariant) ##generate fake image from generator
+        #print(fake.shape)
+        #print(invariant.shape)
+        #fake = torch.cat([fake,invariant],1)
         c_real = self.C(fine) ##make prediction for real image
         c_fake = self.C(fake) ##make prediction for generated image
 
@@ -57,7 +57,7 @@ class WassersteinGAN:
         self.C_optimizer.step()
 
 
-    def _generator_train_iteration(self, coarse, fine):
+    def _generator_train_iteration(self, coarse, fine, invariant):
         """
         Performs one iteration of the generator training.
         Args:
@@ -66,7 +66,7 @@ class WassersteinGAN:
         """
         self.G_optimizer.zero_grad()
 
-        fake = self.G(coarse)
+        fake = self.G(coarse,invariant)
         c_fake = self.C(fake)
 
         # EK = kinetic_energy_loss(fine, fake)
@@ -137,7 +137,7 @@ class WassersteinGAN:
             self._critic_train_iteration(coarse, fine, invariant)
 
             if self.num_steps%hp.critic_iterations == 0:
-                self._generator_train_iteration(coarse, fine)
+                self._generator_train_iteration(coarse, fine, invariant)
 
             # Track train set metrics
             train_metrics = gen_batch_and_log_metrics(

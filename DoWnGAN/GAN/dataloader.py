@@ -30,9 +30,12 @@ class NetCDFSR(Dataset):
             idx = idx.tolist()
 
         #fine_ = self.fine[idx, ...]
-        fine_ = torch.cat([self.fine[idx,...],self.invarient],0)
-        coarse_ = torch.cat([self.coarse[idx, ...],self.invarient],0)
+        #fine_ = torch.cat([self.fine[idx,...],self.invarient],0)
+        #coarse_ = torch.cat([self.coarse[idx, ...],self.invarient],0)
+        fine_ = self.fine[idx,...]
+        coarse_ = self.coarse[idx,...]
+        invarient_ = self.invarient
         # print(self.fine[idx,...])
         # print(self.invarient)
         # print(fine_)
-        return coarse_, fine_, self.invarient
+        return coarse_, fine_, invarient_

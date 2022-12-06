@@ -1,6 +1,6 @@
 # Begin - load the data and initiate training
 # Defines the hyperparameter and constants configurationsimport gc
-from DoWnGAN.networks.generator import Generator
+from DoWnGAN.networks.dsc_generator import Generator
 from DoWnGAN.networks.critic import Critic
 from DoWnGAN.GAN.dataloader import NetCDFSR
 import DoWnGAN.mlflow_tools.mlflow_utils as mlf 
@@ -62,9 +62,9 @@ class StageData:
 
         # Get shapes for networks
         self.fine_dim_n = fine_train.shape[-1]
-        self.n_predictands = fine_train.shape[1] + 1 ##adding invariant
+        self.n_predictands = fine_train.shape[1] ##adding invariant
         self.coarse_dim_n = coarse_train.shape[-1]
-        self.n_covariates = coarse_train.shape[1] + 1##adding invarient
+        self.n_covariates = coarse_train.shape[1]##adding invarient
 
         print("Network dimensions: ")
         print("Fine: ", self.fine_dim_n, "x", self.n_predictands)
