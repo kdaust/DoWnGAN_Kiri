@@ -21,11 +21,11 @@ def load_preprocessed():
     # coarse_test = xr.open_dataset("~/Masters/Data/Test_Upsample/coarse_input/coarse_test_tpe2.nc", engine="netcdf4")
     # fine_test = xr.open_dataset("~/Masters/Data/Test_Upsample/coarse_input/fine_test_small.nc", engine="netcdf4")
     # invarient = xr.open_dataset("~/Masters/Data/Test_Upsample/coarse_input/invarient_tpe2.nc", engine="netcdf4")
-    coarse_train = xr.open_dataset("~/Masters/Data/Test_Upsample/final_data/coarse_train_small.nc", engine="netcdf4")
-    fine_train = xr.open_dataset("~/Masters/Data/Test_Upsample/final_data/fine_train_small.nc", engine="netcdf4")
-    coarse_test = xr.open_dataset("~/Masters/Data/Test_Upsample/final_data/coarse_test_small.nc", engine="netcdf4")
-    fine_test = xr.open_dataset("~/Masters/Data/Test_Upsample/final_data/fine_test_small.nc", engine="netcdf4")
-    invarient = xr.open_dataset("~/Masters/Data/Test_Upsample/final_data/invarient_small.nc", engine="netcdf4")
+    coarse_train = xr.open_dataset("~/Masters/Data/Test_Upsample/DSC_GAN/coarse_train_tpe2.nc", engine="netcdf4")
+    fine_train = xr.open_dataset("~/Masters/Data/Test_Upsample/DSC_GAN/fine_train_small.nc", engine="netcdf4")
+    coarse_test = xr.open_dataset("~/Masters/Data/Test_Upsample/DSC_GAN/coarse_test_tpe2.nc", engine="netcdf4")
+    fine_test = xr.open_dataset("~/Masters/Data/Test_Upsample/DSC_GAN/fine_test_small.nc", engine="netcdf4")
+    invarient = xr.open_dataset("~/Masters/Data/Test_Upsample/DSC_GAN/invarient_small.nc", engine="netcdf4")
     return coarse_train, fine_train, coarse_test, fine_test, invarient
 
 
@@ -71,7 +71,7 @@ class StageData:
         print("Coarse: ", self.coarse_dim_n, "x", self.n_covariates)
 
         self.critic = Critic(self.coarse_dim_n, self.fine_dim_n, self.n_predictands).to(config.device)
-        self.generator = Generator(self.coarse_dim_n, self.fine_dim_n, self.n_covariates, self.n_predictands).to(config.device)
+        self.generator = Generator(self.coarse_dim_n, self.fine_dim_n, self.n_covariates, self.n_predictands, self.n_predictands).to(config.device)
 
         # Define optimizers
         self.G_optimizer = torch.optim.Adam(self.generator.parameters(), hp.lr, betas=(0.9, 0.99))
