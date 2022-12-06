@@ -96,7 +96,7 @@ class Generator(nn.Module):
         
         out1 = self.conv1f(x_fine)
         out = self.res_blocksf(out1)
-        out2 = self.conv2(out)
+        out2 = self.conv2f(out)
         outf = torch.add(out1,out2)
         
         out = torch.cat((outc,outf),1)

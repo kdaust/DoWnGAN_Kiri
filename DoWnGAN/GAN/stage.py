@@ -65,7 +65,7 @@ class StageData:
         self.n_predictands = fine_train.shape[1] ##adding invariant
         self.coarse_dim_n = coarse_train.shape[-1]
         self.n_covariates = coarse_train.shape[1]##adding invarient
-        self.n_invariant = invarient.shape[1]
+        self.n_invariant = 1 #don't hard code
 
         print("Network dimensions: ")
         print("Fine: ", self.fine_dim_n, "x", self.n_predictands)
