@@ -21,11 +21,11 @@ def load_preprocessed():
     # coarse_test = xr.open_dataset("~/Masters/Data/Test_Upsample/coarse_input/coarse_test_tpe2.nc", engine="netcdf4")
     # fine_test = xr.open_dataset("~/Masters/Data/Test_Upsample/coarse_input/fine_test_small.nc", engine="netcdf4")
     # invarient = xr.open_dataset("~/Masters/Data/Test_Upsample/coarse_input/invarient_tpe2.nc", engine="netcdf4")
-    coarse_train = xr.open_dataset("~/Masters/Data/Test_Upsample/DSC_GAN/coarse_train_tpe2.nc", engine="netcdf4")
-    fine_train = xr.open_dataset("~/Masters/Data/Test_Upsample/DSC_GAN/fine_train_small.nc", engine="netcdf4")
-    coarse_test = xr.open_dataset("~/Masters/Data/Test_Upsample/DSC_GAN/coarse_test_tpe2.nc", engine="netcdf4")
-    fine_test = xr.open_dataset("~/Masters/Data/Test_Upsample/DSC_GAN/fine_test_small.nc", engine="netcdf4")
-    invarient = xr.open_dataset("~/Masters/Data/Test_Upsample/DSC_GAN/invarient_small.nc", engine="netcdf4")
+    coarse_train = xr.open_dataset("~/Masters/Data/PredictTest/coarse_train.nc", engine="netcdf4")
+    fine_train = xr.open_dataset("~/Masters/Data/PredictTest/fine_train.nc", engine="netcdf4")
+    coarse_test = xr.open_dataset("~/Masters/Data/PredictTest/coarse_test.nc", engine="netcdf4")
+    fine_test = xr.open_dataset("~/Masters/Data/PredictTest/fine_test.nc", engine="netcdf4")
+    invarient = xr.open_dataset("~/Masters/Data/PredictTest/DEM_Crop.nc", engine="netcdf4")
     return coarse_train, fine_train, coarse_test, fine_test, invarient
 
 

@@ -19,5 +19,5 @@ def define_experiment(mlclient):
     return mlclient.get_experiment_by_name(set_exp).experiment_id
 
 def write_tags():
-    choice = "Testing 1.5 deg area with DSCGAN"
+    choice = "Now larger (16x16) area with DSC GAN"
     return choice
