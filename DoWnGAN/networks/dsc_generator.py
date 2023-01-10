@@ -99,7 +99,8 @@ class Generator(nn.Module):
         out = self.res_blocks(out1)
         out2 = self.conv2(out)
         outf = torch.add(out1,out2)
-        
+        #outf = self.upsampling(outf)
+
         out = torch.cat((outc,outf),1)
         #print(out.size())
         out = self.conv3(out)

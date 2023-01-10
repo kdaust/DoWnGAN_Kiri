@@ -25,7 +25,7 @@ def load_preprocessed():
     fine_train = xr.open_dataset("~/Masters/Data/PredictTest/fine_train.nc", engine="netcdf4")
     coarse_test = xr.open_dataset("~/Masters/Data/PredictTest/coarse_test.nc", engine="netcdf4")
     fine_test = xr.open_dataset("~/Masters/Data/PredictTest/fine_test.nc", engine="netcdf4")
-    invarient = xr.open_dataset("~/Masters/Data/PredictTest/DEM_Crop.nc", engine="netcdf4")
+    invarient = xr.open_dataset("~/Masters/Data/PredictTest/DEM_Coarse.nc", engine="netcdf4")
     return coarse_train, fine_train, coarse_test, fine_test, invarient
 
 
@@ -70,7 +70,7 @@ class StageData:
         print("Network dimensions: ")
         print("Fine: ", self.fine_dim_n, "x", self.n_predictands)
         print("Coarse: ", self.coarse_dim_n, "x", self.n_covariates)
-        print("Invariant: ", self.fine_dim_n, "x", self.n_invariant)
+        print("Invariant: ", invarient.shape[1], "x", self.n_invariant)
 
         self.critic = Critic(self.coarse_dim_n, self.fine_dim_n, self.n_predictands).to(config.device)
         self.generator = Generator(self.coarse_dim_n, self.fine_dim_n, self.n_covariates, self.n_invariant, self.n_predictands).to(config.device)
