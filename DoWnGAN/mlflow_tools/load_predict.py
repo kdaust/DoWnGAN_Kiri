@@ -55,8 +55,8 @@ class NetCDFSR(Dataset):
 
 G = mlflow.pytorch.load_model("/media/data/mlflow_exp/4/e286bcc85c8540be938305892ae3ab4c/artifacts/Generator/Generator_410")
 
-cond_fields = xr.open_dataset("~/Masters/Data/PredictTest/coarse_test.nc", engine="netcdf4")
-fine_fields = xr.open_dataset("~/Masters/Data/PredictTest/fine_test.nc", engine="netcdf4")
+cond_fields = xr.open_dataset("~/Masters/Data/PredictTest/coarse_val_sht.nc", engine="netcdf4")
+fine_fields = xr.open_dataset("~/Masters/Data/PredictTest/fine_val_sht.nc", engine="netcdf4")
 invariant = xr.open_dataset("~/Masters/Data/PredictTest/DEM_Crop.nc", engine = "netcdf4")
 
 coarse = torch.from_numpy(cond_fields.to_array().to_numpy()).transpose(0, 1).to(device).float()
@@ -81,3 +81,10 @@ for data in dataloader:
         break
     out = G(data[0],data[2])
     i = i+1
+    
+temp = out[0,0,...]
+t2 = temp.cpu().detach().numpy()
+import numpy as np
+np.quantile(t2,0.99)
+
+torch.save(out,"Expl_Ge")
