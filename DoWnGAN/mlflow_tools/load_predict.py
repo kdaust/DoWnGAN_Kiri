@@ -16,6 +16,40 @@ import numpy as np
 
 device = torch.device("cuda:0")
 
+import stats
+
+def ralsd(img):
+    # Input data
+    ynew = img # Generated data
+    npix = ynew.shape[-1] # Shape of image in one dimension
+
+    # Define the wavenumbers basically
+    kfreq = np.fft.fftfreq(npix) * npix 
+    kfreq2D = np.meshgrid(kfreq, kfreq) 
+    knrm = np.sqrt(kfreq2D[0]**2 + kfreq2D[1]**2) # Magnitude of wavenumber/vector
+    knrm = knrm.flatten() 
+
+    # Computes the fourier transform and returns the amplitudes
+    def calculate_2dft(image):
+        fourier_image = np.fft.fftn(image)
+        fourier_amplitudes = np.abs(fourier_image)**2
+        return fourier_amplitudes.flatten()
+
+    powers = []
+    for i in range(ynew.shape[0]):
+        wind_2d = calculate_2dft(ynew[i, ...])
+        kbins = np.arange(0.5, npix//2+1, 1.) # Bins to average the spectra
+        # kvals = 0.5 * (kbins[1:] + kbins[:-1]) # "Interpolate" at the bin center
+        # This ends up computing the radial average (kinda weirdly because knrm and wind_2d are flat, but
+        # unique knrm bins correspond to different radii (calculated above)
+        Abins, _, _ = stats.binned_statistic(knrm, wind_2d, statistic = "mean", bins = kbins) 
+        # Weight by the surface area in phase space so that larger wavenumbers are appropriately weighted 
+        # even though they have less power
+        Abins *= np.pi * (kbins[1:]**2 - kbins[:-1]**2)
+        # Add to a list -- each element is a RASPD
+        powers.append(Abins)
+    return(powers)
+
 class NetCDFSR(Dataset):
     """Data loader from torch.Tensors"""
     def __init__(
@@ -87,11 +121,15 @@ for data in dataloader:
     mquant = np.quantile(merid, qval, axis = (1,2))
     u99 = np.append(u99,zquant)
     v99 = np.append(v99, mquant)
+    log_dist = ralsd(zonal[0,...])
+    print("RALSD: ",log_dist)
     del data
     del out
     i = i+1
     
-print("Zonal = ",u99)
-print("Merid = ",v99)
+print("Zonal = ",np.mean(u99))
+print("Merid = ",np.mean(v99))
+
+
 
 
