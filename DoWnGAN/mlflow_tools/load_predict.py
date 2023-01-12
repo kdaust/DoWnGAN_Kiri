@@ -6,14 +6,14 @@ Created on Fri Dec  9 10:28:05 2022
 @author: kiridaust
 """
 
-import csv
 import mlflow
 import mlflow.pytorch
 import torch
-from xarray.core import dataset
 from xarray.core.dataset import Dataset
 import xarray as xr
 import netCDF4
+import numpy as np
+
 device = torch.device("cuda:0")
 
 class NetCDFSR(Dataset):
@@ -71,20 +71,24 @@ dataloader = torch.utils.data.DataLoader(
 # fine2 = fine[:,0:48,0:48]
 torch.cuda.empty_cache()
 i = 0
+u99 = np.array(0)
+v99 = np.array(0)
+qval = 0.99
 for data in dataloader:
     #coarse = data[0].to(device)
     #print(data[0])
     #inv = data[2].to(device)
-    print(data[0].size())
-    print(data[2].size())
-    if(i >= 1):
-        break
+    print("running batch " + i)
+
     out = G(data[0],data[2])
+    zonal = out[:,0,...].cpu().detach().numpy()
+    merid = out[:,1,...].cpu().detach().numpy()
+    zquant = np.quantile(zonal, qval, axis = (1,2))
+    mquant = np.quantile(merid, qval, axis = (1,2))
+    u99 = np.append(u99,zquant)
+    v99 = np.append(v99, mquant)
     i = i+1
     
-temp = out[0,0,...]
-t2 = temp.cpu().detach().numpy()
-import numpy as np
-np.quantile(t2,0.99)
+print("Zonal = ",u99)
+print("Merid = ",v99)
 
-torch.save(out,"Expl_Ge")
