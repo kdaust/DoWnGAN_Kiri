@@ -83,8 +83,8 @@ for data in dataloader:
     i = i+1
     
 temp = out[0,0,...]
-t2 = temp.cpu().detach().numpy()
-import numpy as np
-np.quantile(t2,0.99)
+#t2 = temp.cpu().detach().numpy()
+#import numpy as np
+#np.quantile(t2,0.99)
 
-torch.save(out,"Expl_Ge")
+#torch.save(out,"Expl_Ge")
