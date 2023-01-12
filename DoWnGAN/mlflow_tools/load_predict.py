@@ -78,8 +78,8 @@ for data in dataloader:
     #coarse = data[0].to(device)
     #print(data[0])
     #inv = data[2].to(device)
-    print("running batch " + i)
-
+    print("running batch ", i)
+    #torch.cuda.empty_cache()
     out = G(data[0],data[2])
     zonal = out[:,0,...].cpu().detach().numpy()
     merid = out[:,1,...].cpu().detach().numpy()
@@ -87,6 +87,8 @@ for data in dataloader:
     mquant = np.quantile(merid, qval, axis = (1,2))
     u99 = np.append(u99,zquant)
     v99 = np.append(v99, mquant)
+    del data
+    del out
     i = i+1
     
 print("Zonal = ",u99)
