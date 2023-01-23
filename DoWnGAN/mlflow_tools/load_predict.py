@@ -13,12 +13,13 @@ from xarray.core.dataset import Dataset
 import xarray as xr
 import netCDF4
 import numpy as np
+import matplotlib.pyplot as plt
 
 device = torch.device("cuda:0")
 
-import stats
+import scipy.stats
 
-def ralsd(img):
+def ralsd(img,real):
     # Input data
     ynew = img # Generated data
     npix = ynew.shape[-1] # Shape of image in one dimension
@@ -38,16 +39,20 @@ def ralsd(img):
     powers = []
     for i in range(ynew.shape[0]):
         wind_2d = calculate_2dft(ynew[i, ...])
+        wind_real = calculate_2dft(real[i,...])
         kbins = np.arange(0.5, npix//2+1, 1.) # Bins to average the spectra
         # kvals = 0.5 * (kbins[1:] + kbins[:-1]) # "Interpolate" at the bin center
         # This ends up computing the radial average (kinda weirdly because knrm and wind_2d are flat, but
         # unique knrm bins correspond to different radii (calculated above)
-        Abins, _, _ = stats.binned_statistic(knrm, wind_2d, statistic = "mean", bins = kbins) 
-        # Weight by the surface area in phase space so that larger wavenumbers are appropriately weighted 
-        # even though they have less power
+        Abins, _, _ = scipy.stats.binned_statistic(knrm, wind_2d, statistic = "mean", bins = kbins) 
         Abins *= np.pi * (kbins[1:]**2 - kbins[:-1]**2)
+        
+        # now for ground truth
+        Abins_R, _, _ = scipy.stats.binned_statistic(knrm, wind_real, statistic = "mean", bins = kbins) 
+        Abins_R *= np.pi * (kbins[1:]**2 - kbins[:-1]**2)
+        Abins_stand = Abins/Abins_R
         # Add to a list -- each element is a RASPD
-        powers.append(Abins)
+        powers.append(Abins_stand)
     return(powers)
 
 class NetCDFSR(Dataset):
@@ -75,23 +80,19 @@ class NetCDFSR(Dataset):
 
         if torch.is_tensor(idx):
             idx = idx.tolist()
-
-        #fine_ = self.fine[idx, ...]
-        #fine_ = torch.cat([self.fine[idx,...],self.invarient],0)
-        #coarse_ = torch.cat([self.coarse[idx, ...],self.invarient],0)
         fine_ = self.fine[idx,...]
         coarse_ = self.coarse[idx,...]
         invarient_ = self.invarient
-        # print(self.fine[idx,...])
-        # print(self.invarient)
-        # print(fine_)
         return coarse_, fine_, invarient_
 
 G = mlflow.pytorch.load_model("/media/data/mlflow_exp/4/e286bcc85c8540be938305892ae3ab4c/artifacts/Generator/Generator_410")
+#G = mlflow.pytorch.load_model("/media/data/mlflow_exp/4/17d56bf78c714b18a44ae2f5116d0d15/artifacts/Generator/Generator_410")
+
 
 cond_fields = xr.open_dataset("~/Masters/Data/PredictTest/coarse_val_sht.nc", engine="netcdf4")
 fine_fields = xr.open_dataset("~/Masters/Data/PredictTest/fine_val_sht.nc", engine="netcdf4")
 invariant = xr.open_dataset("~/Masters/Data/PredictTest/DEM_Crop.nc", engine = "netcdf4")
+#invariant = xr.open_dataset("~/Masters/Data/PredictTest/DEM_Coarse.nc", engine = "netcdf4")
 
 coarse = torch.from_numpy(cond_fields.to_array().to_numpy()).transpose(0, 1).to(device).float()
 fine = torch.from_numpy(fine_fields.to_array().to_numpy()).transpose(0, 1).to(device).float()
@@ -105,9 +106,7 @@ dataloader = torch.utils.data.DataLoader(
 # fine2 = fine[:,0:48,0:48]
 torch.cuda.empty_cache()
 i = 0
-u99 = np.array(0)
-v99 = np.array(0)
-qval = 0.99
+RALSD = []
 for data in dataloader:
     #coarse = data[0].to(device)
     #print(data[0])
@@ -115,20 +114,53 @@ for data in dataloader:
     print("running batch ", i)
     #torch.cuda.empty_cache()
     out = G(data[0],data[2])
+    #print(data[1][:,0,...].size())
+    real = data[1][:,0,...].cpu().detach().numpy()
     zonal = out[:,0,...].cpu().detach().numpy()
     merid = out[:,1,...].cpu().detach().numpy()
-    zquant = np.quantile(zonal, qval, axis = (1,2))
-    mquant = np.quantile(merid, qval, axis = (1,2))
-    u99 = np.append(u99,zquant)
-    v99 = np.append(v99, mquant)
-    log_dist = ralsd(zonal[0,...])
-    print("RALSD: ",log_dist)
+    # zquant = np.quantile(zonal, qval, axis = (1,2))
+    # mquant = np.quantile(merid, qval, axis = (1,2))
+    # u99 = np.append(u99,zquant)
+    # v99 = np.append(v99, mquant)
+    
+    distMetric = ralsd(zonal,real)
+    t1 = np.mean(distMetric,axis = 0)
+    RALSD.append(t1)
+    #print("RALSD: ",log_dist)
     del data
     del out
+    del real
     i = i+1
     
-print("Zonal = ",np.mean(u99))
-print("Merid = ",np.mean(v99))
+
+LR_RALSD = RALSD.copy()
+HR_RALSD = RALSD.copy()
+
+LRral = np.mean(LR_RALSD,axis = 0)
+LRsd = np.std(LR_RALSD,axis = 0)
+HRral = np.mean(HR_RALSD,axis = 0)
+HRsd = np.std(HR_RALSD,axis = 0)
+
+
+plt.plot(HRral, label = "HighRes")
+plt.plot(LRral, label = "LowRes")
+plt.fill_between(range(64), HRral+HRsd,HRral-HRsd, alpha = .1)
+plt.fill_between(range(64), LRral+LRsd,LRral-LRsd, alpha = .1)
+plt.xlabel("Frequency Group")
+plt.ylabel("Amplitude proportion")
+plt.legend()
+
+# plt.boxplot((HRU,LRU),notch=True,labels=("HighRes","LowRes"))
+# plt.title("1% quantile of zonal wind speed")
+
+# plt.hist(u99,25)
+# plt.title("99th Qunatile of Jan Zonal Wind Speed (LRT)")
+
+# plt.hist(v99,25)
+# plt.title("99th Qunatile of Jan Meridional Wind Speed (LRT)")
+
+# print("Zonal = ",np.mean(u99))
+# print("Merid = ",np.mean(v99))
 
 
 

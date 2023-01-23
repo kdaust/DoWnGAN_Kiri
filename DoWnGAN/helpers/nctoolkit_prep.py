@@ -10,22 +10,30 @@ import numpy as np
 
 ##era5
 coarse_covars = {
-    "temp": "temp_era5.nc",
-    "humid": "humid_era5.nc",
-    "pressure": "pressure.nc"
+    "temp": "/home/kiridaust/Masters/Data/temperature/temp_era5.nc",
+    "humid": "/home/kiridaust/Masters/Data/temperature/humid_era5.nc",
+    "pressure": "/home/kiridaust/Masters/Data/temperature/PSLR.nc"
     }
 
-train_region = [-126.125,-121.875,49.125,52.875]
-x_res = 0.25
-y_res = 0.25
+fine_covars = {
+    "temp": "/home/kiridaust/Masters/Data/temperature/wrf_temp.nc",
+    "humid": "/home/kiridaust/Masters/Data/temperature/wrf_humid.nc"
+    }
 
-for covar in coarse_covars.keys():
-    temp = nc.open_data(coarse_covars[covar])
+train_region = [-126,-122,49,53]
+#spatial_res = 0.25
+spatial_res = 0.03125
+bounds = [train_region[0]+spatial_res/2,train_region[1]-spatial_res/2,train_region[2]+spatial_res/2,train_region[3]-spatial_res/2]
+file_dict = fine_covars
+
+for covar in file_dict.keys():
+    print("Processing ",covar)
+    temp = nc.open_data(file_dict[covar])
     oldnm = temp.contents.variable[0]
     temp.rename({oldnm: covar})
     
-    temp.subset(years = range(2001,2010)) #what we're working with
-    temp.to_latlon(lon = [train_region[0],train_region[1]], lat = [train_region[2],train_region[3]], res = [x_res,y_res])
+    temp.subset(years = range(2001,2007)) #what we're working with
+    temp.to_latlon(lon = [bounds[0],bounds[1]], lat = [bounds[2],bounds[3]], res = [spatial_res,spatial_res])
     num_slices = int(temp.contents.ntimes)
     num_points = int(temp.contents.npoints)
     temp_mean = temp.copy()
@@ -46,13 +54,24 @@ for covar in coarse_covars.keys():
     temp_var.run()
 
     var_mean = float(temp_mean.to_xarray()[covar])
-    var_var = float(temp_var.to_xarray()[covar])
+    var_var = np.sqrt(float(temp_var.to_xarray()[covar]))
     temp.subtract(var_mean)
     temp.divide(var_var)
     temp.run()
+    if(covar == "temp"):
+        ds_out = temp.copy()
+    else:
+        ds_out.append(temp)
 
-
-temp.to_nc("Test_Process.nc")
+ds_out.merge()
+train = ds_out.copy()
+train.subset(years = range(2001,2004))
+train.to_nc("/home/kiridaust/Masters/Data/temperature/fine_train.nc")
+test = ds_out.copy()
+test.subset(years = 2005)
+test.to_nc("/home/kiridaust/Masters/Data/temperature/fine_test.nc")
+ds_out.subset(years = 2007)
+ds_out.to_nc("/home/kiridaust/Masters/Data/temperature/fine_validation.nc")
 
 #t2.assign(avg = lambda x: spatial_mean(x.tas), drop = True)
 

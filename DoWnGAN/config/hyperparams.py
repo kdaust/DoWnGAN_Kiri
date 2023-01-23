@@ -15,7 +15,7 @@ import os
 # Hyper params
 gp_lambda = 10
 critic_iterations = 5
-batch_size = 128
+batch_size = 16
 gamma = 0.01
 content_lambda = 5
 ncomp = 75
