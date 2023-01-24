@@ -15,6 +15,7 @@ coarse_covars = {
     "pressure": "/home/kiridaust/Masters/Data/temperature/PSLR.nc"
     }
 
+##WRF
 fine_covars = {
     "temp": "/home/kiridaust/Masters/Data/temperature/wrf_temp.nc",
     "humid": "/home/kiridaust/Masters/Data/temperature/wrf_humid.nc"
@@ -23,54 +24,63 @@ fine_covars = {
 train_region = [-126,-122,49,53]
 #spatial_res = 0.25
 spatial_res = 0.03125
+##calculate griddes for remapping
 bounds = [train_region[0]+spatial_res/2,train_region[1]-spatial_res/2,train_region[2]+spatial_res/2,train_region[3]-spatial_res/2]
 file_dict = fine_covars
 
-for covar in file_dict.keys():
+for i, covar in enumerate(file_dict.keys()):
     print("Processing ",covar)
     temp = nc.open_data(file_dict[covar])
+    ##standardise names
     oldnm = temp.contents.variable[0]
     temp.rename({oldnm: covar})
     
-    temp.subset(years = range(2001,2007)) #what we're working with
+    temp.subset(years = range(2001,2007)) #Just so we're not dealing with massive datasets
     temp.to_latlon(lon = [bounds[0],bounds[1]], lat = [bounds[2],bounds[3]], res = [spatial_res,spatial_res])
     num_slices = int(temp.contents.ntimes)
     num_points = int(temp.contents.npoints)
+    
+    ##calculate mean and variance
     temp_mean = temp.copy()
+    #calculate mean
     temp_mean.spatial_mean()
     temp_mean.tmean()
     temp_mean.run()
 
-
+    #calculate variance - cdo will only summarise either spatially or temporally at once, so using formula to get overall variance
     temp_var = temp.copy()
     t3 = temp.copy()
-    temp_var.spatial_var()
-    temp_var.tsum()
-    t3.spatial_mean()
-    t3.tvar()
+    temp_var.spatial_var() #spatial variance
+    temp_var.tsum() ##temporal sum of variance
+    t3.spatial_mean() ##sparial mean
+    t3.tvar() ##temporal variance of mean
     t3.multiply((num_points*(num_slices-1))/(num_points-1))
-    temp_var.add(t3)
+    temp_var.add(t3) ##combine them
     temp_var.multiply((num_points-1)/(num_points*num_slices-1)) ##this is now the variance
     temp_var.run()
 
-    var_mean = float(temp_mean.to_xarray()[covar])
-    var_var = np.sqrt(float(temp_var.to_xarray()[covar]))
+    var_mean = float(temp_mean.to_xarray()[covar]) ##extract values
+    var_var = np.sqrt(float(temp_var.to_xarray()[covar])) ##sqrt to get stdev
+    ##standardise
     temp.subtract(var_mean)
     temp.divide(var_var)
     temp.run()
-    if(covar == "temp"):
+    
+    ##combine into one dataset
+    if(i == 0):
         ds_out = temp.copy()
     else:
         ds_out.append(temp)
 
 ds_out.merge()
 train = ds_out.copy()
+##separate train and test
 train.subset(years = range(2001,2004))
 train.to_nc("/home/kiridaust/Masters/Data/temperature/fine_train.nc")
 test = ds_out.copy()
 test.subset(years = 2005)
 test.to_nc("/home/kiridaust/Masters/Data/temperature/fine_test.nc")
-ds_out.subset(years = 2007)
+ds_out.subset(years = 2006)
 ds_out.to_nc("/home/kiridaust/Masters/Data/temperature/fine_validation.nc")
 
 #t2.assign(avg = lambda x: spatial_mean(x.tas), drop = True)
