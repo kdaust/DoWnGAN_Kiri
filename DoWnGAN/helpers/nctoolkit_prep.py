@@ -9,27 +9,27 @@ import nctoolkit as nc
 import numpy as np
 
 ##era5
-fine = False
+fine = True
 
 coarse_covars = {
-    "temp": "/home/kiridaust/Masters/Data/temperature/temp_era5.nc",
-    #"humid": "/home/kiridaust/Masters/Data/temperature/humid_era5.nc",
+    #"temp": "/home/kiridaust/Masters/Data/temperature/temp_era5.nc",
+    "humid": "/home/kiridaust/Masters/Data/temperature/humid_era5.nc",
     "pressure": "/home/kiridaust/Masters/Data/temperature/PSLR.nc"
     }
 
 coarse_out = {
-    "train": "/home/kiridaust/Masters/Data/temperature/just_temp/coarse_train.nc",
-    "test": "/home/kiridaust/Masters/Data/temperature/just_temp/coarse_test.nc",
+    "train": "/home/kiridaust/Masters/Data/temperature/just_humid/coarse_train.nc",
+    "test": "/home/kiridaust/Masters/Data/temperature/just_humid/coarse_test.nc",
     }
 
 fine_covars = {
-    "temp": "/home/kiridaust/Masters/Data/temperature/wrf_temp.nc",
-    #"humid": "/home/kiridaust/Masters/Data/temperature/wrf_humid.nc"
+    #"temp": "/home/kiridaust/Masters/Data/temperature/wrf_temp.nc",
+    "humid": "/home/kiridaust/Masters/Data/temperature/wrf_humid.nc"
     }
 
 fine_out = {
-    "train": "/home/kiridaust/Masters/Data/temperature/just_temp/fine_train.nc",
-    "test": "/home/kiridaust/Masters/Data/temperature/just_temp/fine_test.nc",
+    "train": "/home/kiridaust/Masters/Data/temperature/just_humid/fine_train.nc",
+    "test": "/home/kiridaust/Masters/Data/temperature/just_humid/fine_test.nc",
     }
 
 train_region = [-126,-122,49,53]

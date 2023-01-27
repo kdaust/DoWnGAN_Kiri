@@ -85,13 +85,16 @@ class NetCDFSR(Dataset):
         invarient_ = self.invarient
         return coarse_, fine_, invarient_
 
-G = mlflow.pytorch.load_model("/media/data/mlflow_exp/4/e286bcc85c8540be938305892ae3ab4c/artifacts/Generator/Generator_410")
+
+mod_smallres = "/media/data/mlflow_exp/4/2121059dd1e4496d8a30aa879d3177f1/artifacts/Generator/Generator_40"
+mod_bigres = "/media/data/mlflow_exp/4/e85448cc9e724de48e0e5d81232cea35/artifacts/Generator/Generator_40"
+G = mlflow.pytorch.load_model(mod_smallres)
 #G = mlflow.pytorch.load_model("/media/data/mlflow_exp/4/17d56bf78c714b18a44ae2f5116d0d15/artifacts/Generator/Generator_410")
 
 
-cond_fields = xr.open_dataset("~/Masters/Data/PredictTest/coarse_val_sht.nc", engine="netcdf4")
-fine_fields = xr.open_dataset("~/Masters/Data/PredictTest/fine_val_sht.nc", engine="netcdf4")
-invariant = xr.open_dataset("~/Masters/Data/PredictTest/DEM_Crop.nc", engine = "netcdf4")
+cond_fields = xr.open_dataset("~/Masters/Data/temperature/just_temp/coarse_test.nc", engine="netcdf4")
+fine_fields = xr.open_dataset("~/Masters/Data/temperature/just_temp/fine_test.nc", engine="netcdf4")
+invariant = xr.open_dataset("~/Masters/Data/temperature/DEM_Use.nc", engine = "netcdf4")
 #invariant = xr.open_dataset("~/Masters/Data/PredictTest/DEM_Coarse.nc", engine = "netcdf4")
 
 coarse = torch.from_numpy(cond_fields.to_array().to_numpy()).transpose(0, 1).to(device).float()
@@ -115,15 +118,17 @@ for data in dataloader:
     #torch.cuda.empty_cache()
     out = G(data[0],data[2])
     #print(data[1][:,0,...].size())
-    real = data[1][:,0,...].cpu().detach().numpy()
-    zonal = out[:,0,...].cpu().detach().numpy()
-    merid = out[:,1,...].cpu().detach().numpy()
+    # real = data[1][:,0,...].cpu().detach().numpy()
+    # zonal = out[:,0,...].cpu().detach().numpy()
+    # merid = out[:,1,...].cpu().detach().numpy()
+    real = data[1].cpu().detach().numpy()
+    fake = out.cpu().detach().numpy()
     # zquant = np.quantile(zonal, qval, axis = (1,2))
     # mquant = np.quantile(merid, qval, axis = (1,2))
     # u99 = np.append(u99,zquant)
     # v99 = np.append(v99, mquant)
     
-    distMetric = ralsd(zonal,real)
+    distMetric = ralsd(fake,real)
     t1 = np.mean(distMetric,axis = 0)
     RALSD.append(t1)
     #print("RALSD: ",log_dist)
@@ -142,8 +147,8 @@ HRral = np.mean(HR_RALSD,axis = 0)
 HRsd = np.std(HR_RALSD,axis = 0)
 
 
-plt.plot(HRral, label = "HighRes")
-plt.plot(LRral, label = "LowRes")
+plt.plot(HRral, label = "16RRDB")
+plt.plot(LRral, label = "4RRDB")
 plt.fill_between(range(64), HRral+HRsd,HRral-HRsd, alpha = .1)
 plt.fill_between(range(64), LRral+LRsd,LRral-LRsd, alpha = .1)
 plt.xlabel("Frequency Group")

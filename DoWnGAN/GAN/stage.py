@@ -1,6 +1,6 @@
 # Begin - load the data and initiate training
 # Defines the hyperparameter and constants configurationsimport gc
-from DoWnGAN.networks.dsc_generator import Generator
+from DoWnGAN.networks.dsc_generator_v2 import Generator
 from DoWnGAN.networks.critic import Critic
 from DoWnGAN.GAN.dataloader import NetCDFSR
 import DoWnGAN.mlflow_tools.mlflow_utils as mlf 
@@ -21,10 +21,10 @@ def load_preprocessed():
     # coarse_test = xr.open_dataset("~/Masters/Data/Test_Upsample/coarse_input/coarse_test_tpe2.nc", engine="netcdf4")
     # fine_test = xr.open_dataset("~/Masters/Data/Test_Upsample/coarse_input/fine_test_small.nc", engine="netcdf4")
     # invarient = xr.open_dataset("~/Masters/Data/Test_Upsample/coarse_input/invarient_tpe2.nc", engine="netcdf4")
-    coarse_train = xr.open_dataset("~/Masters/Data/temperature/just_temp/coarse_train.nc", engine="netcdf4")
-    fine_train = xr.open_dataset("~/Masters/Data/temperature/just_temp/fine_train.nc", engine="netcdf4")
-    coarse_test = xr.open_dataset("~/Masters/Data/temperature/just_temp/coarse_test.nc", engine="netcdf4")
-    fine_test = xr.open_dataset("~/Masters/Data/temperature/just_temp/fine_test.nc", engine="netcdf4")
+    coarse_train = xr.open_dataset("~/Masters/Data/temperature/just_humid/coarse_train.nc", engine="netcdf4")
+    fine_train = xr.open_dataset("~/Masters/Data/temperature/just_humid/fine_train.nc", engine="netcdf4")
+    coarse_test = xr.open_dataset("~/Masters/Data/temperature/just_humid/coarse_test.nc", engine="netcdf4")
+    fine_test = xr.open_dataset("~/Masters/Data/temperature/just_humid/fine_test.nc", engine="netcdf4")
     invarient = xr.open_dataset("~/Masters/Data/temperature/DEM_Use.nc", engine="netcdf4")
     return coarse_train, fine_train, coarse_test, fine_test, invarient
 

@@ -19,8 +19,7 @@ def gen_grid_images(G, coarse, invariant, real, epoch, train_test):
     fake = G(coarse[random, ...].to(config.device), invariant[random,...].to(config.device))
     coarse = torchvision.utils.make_grid(
         coarse[random, ...],
-        nrow=10,
-        padding=5
+        nrow=10
     )[0, ...]
 
     fake = torchvision.utils.make_grid(
@@ -41,7 +40,7 @@ def gen_grid_images(G, coarse, invariant, real, epoch, train_test):
     subfigs = fig.subfigures(nrows=3, ncols=1)
     
     # Coarse Samples
-    subfigs[0].suptitle("Coarse ERAI")
+    subfigs[0].suptitle("Coarse ERA5")
     ax = subfigs[0].subplots(1, 1)
     ax.imshow(coarse.cpu().detach(), origin="lower")
 
@@ -51,7 +50,7 @@ def gen_grid_images(G, coarse, invariant, real, epoch, train_test):
     ax.imshow(fake.cpu().detach(), origin="lower")
 
     # Ground Truth
-    subfigs[2].suptitle("Ground Truth")
+    subfigs[2].suptitle("WRF")
     ax = subfigs[2].subplots(1, 1)
     ax.imshow(real.cpu().detach(), origin="lower")
 
