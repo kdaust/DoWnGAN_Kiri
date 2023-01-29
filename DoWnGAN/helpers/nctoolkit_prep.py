@@ -21,6 +21,7 @@ coarse_covars = {
 coarse_out = {
     "train": "/home/kiridaust/Masters/Data/processed_data/ds_precip/coarse_train.nc",
     "test": "/home/kiridaust/Masters/Data/processed_data/ds_precip/coarse_test.nc",
+    "val": "/home/kiridaust/Masters/Data/processed_data/ds_precip/coarse_validation.nc"
     }
 
 fine_covars = {
@@ -32,6 +33,7 @@ fine_covars = {
 fine_out = {
     "train": "/home/kiridaust/Masters/Data/processed_data/ds_precip/fine_train.nc",
     "test": "/home/kiridaust/Masters/Data/processed_data/ds_precip/fine_test.nc",
+    "val": "/home/kiridaust/Masters/Data/processed_data/ds_precip/fine_validation.nc"
     }
 
 train_region = [-126,-122,49,53]
@@ -93,13 +95,13 @@ for i,covar in enumerate(file_dict.keys()):
 ds_out.merge()
 train = ds_out.copy()
 ##separate train and test
-train.subset(years = range(2001,2004))
+train.subset(years = 2005)
 train.to_nc(out_dict["train"])
 test = ds_out.copy()
-test.subset(years = 2005)
+test.subset(years = 2006)
 test.to_nc(out_dict["test"])
-# ds_out.subset(years = 2007)
-# ds_out.to_nc("/home/kiridaust/Masters/Data/temperature/fine_validation.nc")
+ds_out.subset(years = 2004)
+ds_out.to_nc(out_dict["val"])
 
 
 #t2.assign(avg = lambda x: spatial_mean(x.tas), drop = True)

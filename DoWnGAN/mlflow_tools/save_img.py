@@ -80,5 +80,12 @@ for i, data in enumerate(dataloader):
 
     #print("RALSD: ",log_dist)
     del data
-    del out
-    del real
+    #del out
+    #del rea
+    
+import matplotlib.pyplot as plt
+temp_gen = out[14,1,...]
+temp_real = real[14,1,...]
+plt.imshow(temp_gen)
+plt.imshow(temp_real)
+
