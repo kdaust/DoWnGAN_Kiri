@@ -19,5 +19,5 @@ def define_experiment(mlclient):
     return mlclient.get_experiment_by_name(set_exp).experiment_id
 
 def write_tags():
-    choice = "(16x16) area with DSC GAN, HR topo, humd,pressure,temp covars, just predicting humid"
+    choice = "(16x16) area with DSC GAN, HR topo, specific humid,pressure,temp,evap,snow cover covars, just predicting humid"
     return choice

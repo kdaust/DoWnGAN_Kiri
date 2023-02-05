@@ -9,31 +9,32 @@ import nctoolkit as nc
 import numpy as np
 
 ##era5
-fine = True
+fine = False
 
 coarse_covars = {
     "temp": "/home/kiridaust/Masters/Data/Era5/temp_raw.nc",
-    "humid": "/home/kiridaust/Masters/Data/Era5/dewpoint_raw.nc",
+    "humid": "/home/kiridaust/Masters/Data/Era5/era5_specific_humid.nc",
     "pressure": "/home/kiridaust/Masters/Data/Era5/pressure_raw.nc",
-    "precip": "/home/kiridaust/Masters/Data/Era5/precip_raw.nc"
+    "evap": "/home/kiridaust/Masters/Data/Era5/evap_raw.nc",
+    "snow_cov": "/home/kiridaust/Masters/Data/Era5/snow_cover_raw.nc"
     }
 
 coarse_out = {
-    "train": "/home/kiridaust/Masters/Data/processed_data/ds_precip/coarse_train.nc",
-    "test": "/home/kiridaust/Masters/Data/processed_data/ds_precip/coarse_test.nc",
-    "val": "/home/kiridaust/Masters/Data/processed_data/ds_precip/coarse_validation.nc"
+    "train": "/home/kiridaust/Masters/Data/processed_data/ds_humid/coarse_train.nc",
+    "test": "/home/kiridaust/Masters/Data/processed_data/ds_humid/coarse_test.nc",
+    "val": "/home/kiridaust/Masters/Data/processed_data/ds_humid/coarse_validation.nc"
     }
 
 fine_covars = {
     #"temp": "/home/kiridaust/Masters/Data/temperature/wrf_temp.nc",
-    #"humid": "/home/kiridaust/Masters/Data/temperature/wrf_humid.nc"
-    "precip": "/home/kiridaust/Masters/Data/WRF/prec_raw.nc"
+    "humid": "/home/kiridaust/Masters/Data/temperature/wrf_humid.nc"
+    #"precip": "/home/kiridaust/Masters/Data/WRF/prec_raw.nc"
     }
 
 fine_out = {
-    "train": "/home/kiridaust/Masters/Data/processed_data/ds_precip/fine_train.nc",
-    "test": "/home/kiridaust/Masters/Data/processed_data/ds_precip/fine_test.nc",
-    "val": "/home/kiridaust/Masters/Data/processed_data/ds_precip/fine_validation.nc"
+    "train": "/home/kiridaust/Masters/Data/processed_data/ds_humid/fine_train.nc",
+    "test": "/home/kiridaust/Masters/Data/processed_data/ds_humid/fine_test.nc",
+    "val": "/home/kiridaust/Masters/Data/processed_data/ds_humid/fine_validation.nc"
     }
 
 train_region = [-126,-122,49,53]
@@ -55,7 +56,9 @@ for i,covar in enumerate(file_dict.keys()):
     ##standardise names
     oldnm = temp.contents.variable[0]
     temp.rename({oldnm: covar})
-    
+    if(covar == 'precip'):
+        temp.top()
+        temp.run()
     temp.subset(years = range(2001,2007)) #Just so we're not dealing with massive datasets
     temp.to_latlon(lon = [bounds[0],bounds[1]], lat = [bounds[2],bounds[3]], res = [spatial_res,spatial_res])
     num_slices = int(temp.contents.ntimes)
