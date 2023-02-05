@@ -56,11 +56,14 @@ for i,covar in enumerate(file_dict.keys()):
     ##standardise names
     oldnm = temp.contents.variable[0]
     temp.rename({oldnm: covar})
-    if(covar == 'precip'):
-        temp.top()
-        temp.run()
+    # if(covar == 'precip'):
+    #     temp.top()
+    #     temp.run()
     temp.subset(years = range(2001,2007)) #Just so we're not dealing with massive datasets
     temp.to_latlon(lon = [bounds[0],bounds[1]], lat = [bounds[2],bounds[3]], res = [spatial_res,spatial_res])
+    temp.missing_as(0.0)
+    temp.run()
+    
     num_slices = int(temp.contents.ntimes)
     num_points = int(temp.contents.npoints)
     
