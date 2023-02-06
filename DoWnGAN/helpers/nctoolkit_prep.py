@@ -15,8 +15,8 @@ coarse_covars = {
     "temp": "/home/kiridaust/Masters/Data/Era5/temp_raw.nc",
     "humid": "/home/kiridaust/Masters/Data/Era5/era5_specific_humid.nc",
     "pressure": "/home/kiridaust/Masters/Data/Era5/pressure_raw.nc",
-    "evap": "/home/kiridaust/Masters/Data/Era5/evap_raw.nc",
-    "snow_cov": "/home/kiridaust/Masters/Data/Era5/snow_cover_raw.nc"
+    "snow_cov": "/home/kiridaust/Masters/Data/Era5/snow_cover_raw.nc",
+    "evap": "/home/kiridaust/Masters/Data/Era5/evap_raw.nc"
     }
 
 coarse_out = {
@@ -60,8 +60,11 @@ for i,covar in enumerate(file_dict.keys()):
     #     temp.top()
     #     temp.run()
     temp.subset(years = range(2001,2007)) #Just so we're not dealing with massive datasets
+    #temp.cdo_command("setmissval,0")
     temp.to_latlon(lon = [bounds[0],bounds[1]], lat = [bounds[2],bounds[3]], res = [spatial_res,spatial_res])
-    temp.missing_as(0.0)
+    temp.run()
+    #temp.cdo_command("setmissval,nan")
+    temp.cdo_command("setmisstoc,0")
     temp.run()
     
     num_slices = int(temp.contents.ntimes)
@@ -98,6 +101,7 @@ for i,covar in enumerate(file_dict.keys()):
     else:
         ds_out.append(temp)
 
+print("saving datasets")
 ds_out.merge()
 train = ds_out.copy()
 ##separate train and test
