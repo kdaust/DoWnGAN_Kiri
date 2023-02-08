@@ -86,14 +86,14 @@ class NetCDFSR(Dataset):
         return coarse_, fine_, invarient_
 
 
-mod_smallres = "/media/data/mlflow_exp/4/2121059dd1e4496d8a30aa879d3177f1/artifacts/Generator/Generator_40"
-mod_bigres = "/media/data/mlflow_exp/4/e85448cc9e724de48e0e5d81232cea35/artifacts/Generator/Generator_40"
-G = mlflow.pytorch.load_model(mod_smallres)
+mod_smallres = "/media/data/mlflow_exp/4/69a19619c17647ae8665266d393008be/artifacts/Generator/Generator_370"
+mod_bigres = "/media/data/mlflow_exp/4/1e436bfdac40440690d7ae17b6879598/artifacts/Generator/Generator_340"
+G = mlflow.pytorch.load_model(mod_bigres)
 #G = mlflow.pytorch.load_model("/media/data/mlflow_exp/4/17d56bf78c714b18a44ae2f5116d0d15/artifacts/Generator/Generator_410")
 
 
-cond_fields = xr.open_dataset("~/Masters/Data/temperature/just_temp/coarse_test.nc", engine="netcdf4")
-fine_fields = xr.open_dataset("~/Masters/Data/temperature/just_temp/fine_test.nc", engine="netcdf4")
+cond_fields = xr.open_dataset("~/Masters/Data/processed_data/ds_humid/coarse_validation.nc", engine="netcdf4")
+fine_fields = xr.open_dataset("~/Masters/Data/processed_data/ds_humid/fine_validation.nc", engine="netcdf4")
 invariant = xr.open_dataset("~/Masters/Data/temperature/DEM_Use.nc", engine = "netcdf4")
 #invariant = xr.open_dataset("~/Masters/Data/PredictTest/DEM_Coarse.nc", engine = "netcdf4")
 
@@ -108,9 +108,10 @@ dataloader = torch.utils.data.DataLoader(
 # coarse_curr = coarse[32,:,0:6,0:6]
 # fine2 = fine[:,0:48,0:48]
 torch.cuda.empty_cache()
-i = 0
 RALSD = []
-for data in dataloader:
+for i, data in enumerate(dataloader):
+    if(i > 60):
+        break
     #coarse = data[0].to(device)
     #print(data[0])
     #inv = data[2].to(device)
@@ -135,7 +136,7 @@ for data in dataloader:
     del data
     del out
     del real
-    i = i+1
+    #i = i+1
     
 
 LR_RALSD = RALSD.copy()
@@ -147,8 +148,8 @@ HRral = np.mean(HR_RALSD,axis = 0)
 HRsd = np.std(HR_RALSD,axis = 0)
 
 
-plt.plot(HRral, label = "16RRDB")
-plt.plot(LRral, label = "4RRDB")
+plt.plot(HRral, label = "Noise")
+plt.plot(LRral, label = "NoNoise")
 plt.fill_between(range(64), HRral+HRsd,HRral-HRsd, alpha = .1)
 plt.fill_between(range(64), LRral+LRsd,LRral-LRsd, alpha = .1)
 plt.xlabel("Frequency Group")

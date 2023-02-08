@@ -9,7 +9,7 @@ import torch.nn.functional as F
 import math
 
 class GaussianNoise(nn.Module):
-    def __init__(self, sigma=0.1, is_relative_detach=False):
+    def __init__(self, sigma=1, is_relative_detach=False):
         super().__init__()
         self.sigma = sigma
         self.is_relative_detach = is_relative_detach
@@ -83,7 +83,7 @@ class ResidualInResidualDenseBlock(nn.Module):
     
 class Generator(nn.Module):
     # coarse_dim_n, fine_dim_n, n_covariates, n_predictands
-    def __init__(self, filters, fine_dims, channels_coarse, channels_invariant, n_predictands=2, num_res_blocks=16, num_res_blocks_fine = 4, num_upsample=3):
+    def __init__(self, filters, fine_dims, channels_coarse, channels_invariant, n_predictands=1, num_res_blocks=16, num_res_blocks_fine = 4, num_upsample=3):
         super(Generator, self).__init__()
 
         # First layer
@@ -110,10 +110,10 @@ class Generator(nn.Module):
         # Final output block
         self.conv3 = nn.Sequential(
             #nn.Conv2d(fine_dims + filters, fine_dims + filters, kernel_size=1, stride=1, padding=1), ##pointwise convolution
-            nn.Conv2d(filters*2, filters*2, kernel_size=3, stride=1, padding=1),
-            ResidualInResidualDenseBlock(filters*2), ##should test whether this helps
+            nn.Conv2d(filters*2, filters, kernel_size=3, stride=1, padding=1),
+            DenseResidualBlock(filters),
             nn.LeakyReLU(),
-            nn.Conv2d(filters*2, n_predictands, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(filters, n_predictands, kernel_size=3, stride=1, padding=1),
         )
         
     def forward(self, x_coarse, x_fine):
