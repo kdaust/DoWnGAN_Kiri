@@ -8,12 +8,25 @@ Created on Fri Dec  9 10:28:05 2022
 
 import mlflow
 import mlflow.pytorch
-import torch
+
 from xarray.core.dataset import Dataset
 import xarray as xr
 import netCDF4
 import numpy as np
+
+import torch
 import matplotlib.pyplot as plt
+import os
+os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
+HR = torch.load("C:/Users/kirid/Desktop/Masters/GAN_Results/Validation/HR_topo_GEN.pt")
+LR = torch.load("C:/Users/kirid/Desktop/Masters/GAN_Results/Validation/LR_topo_GEN.pt")
+
+num = 7
+plt.imshow(HR[num,1,...])
+plt.imshow(LR[num,1,...])
+np.savetxt("HR_Generate.csv", HR[7,0,...],delimiter=',')
+np.savetxt("LR_Generate.csv", LR[7,0,...],delimiter=',')
+
 
 device = torch.device("cuda:0")
 
