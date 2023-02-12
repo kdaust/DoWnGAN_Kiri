@@ -86,75 +86,100 @@ class NetCDFSR(Dataset):
         return coarse_, fine_, invarient_
 
 
-mod_smallres = "/media/data/mlflow_exp/4/69a19619c17647ae8665266d393008be/artifacts/Generator/Generator_370"
-mod_bigres = "/media/data/mlflow_exp/4/1e436bfdac40440690d7ae17b6879598/artifacts/Generator/Generator_340"
-G = mlflow.pytorch.load_model(mod_bigres)
-#G = mlflow.pytorch.load_model("/media/data/mlflow_exp/4/17d56bf78c714b18a44ae2f5116d0d15/artifacts/Generator/Generator_410")
+def calc_ralsd(G,dataloader):
+    torch.cuda.empty_cache()
+    RALSD = []
+    for i, data in enumerate(dataloader):
+        if(i > 100):
+            break
+        #coarse = data[0].to(device)
+        #print(data[0])
+        #inv = data[2].to(device)
+        print("running batch ", i)
+        #torch.cuda.empty_cache()
+        out = G(data[0],data[2])
+        #print(data[1][:,0,...].size())
+        real = data[1][:,0,...].cpu().detach().numpy()
+        zonal = out[:,0,...].cpu().detach().numpy()
+        merid = out[:,1,...].cpu().detach().numpy()
+        #real = data[1].cpu().detach().numpy()
+        #fake = out.cpu().detach().numpy()
+        # zquant = np.quantile(zonal, qval, axis = (1,2))
+        # mquant = np.quantile(merid, qval, axis = (1,2))
+        # u99 = np.append(u99,zquant)
+        # v99 = np.append(v99, mquant)
+        
+        distMetric = ralsd(zonal,real)
+        t1 = np.mean(distMetric,axis = 0)
+        RALSD.append(t1)
+        #print("RALSD: ",log_dist)
+        del data
+        del out
+        del real
+    return(RALSD)
 
-
-cond_fields = xr.open_dataset("~/Masters/Data/processed_data/ds_humid/coarse_validation.nc", engine="netcdf4")
-fine_fields = xr.open_dataset("~/Masters/Data/processed_data/ds_humid/fine_validation.nc", engine="netcdf4")
-invariant = xr.open_dataset("~/Masters/Data/temperature/DEM_Use.nc", engine = "netcdf4")
-#invariant = xr.open_dataset("~/Masters/Data/PredictTest/DEM_Coarse.nc", engine = "netcdf4")
-
+mod_smallres = "/media/data/mlflow_exp/4/17d56bf78c714b18a44ae2f5116d0d15/artifacts/Generator/Generator_370"
+mod_bigres = "/media/data/mlflow_exp/4/e286bcc85c8540be938305892ae3ab4c/artifacts/Generator/Generator_370"
+cond_fields = xr.open_dataset("~/Masters/Data/PredictTest/coarse_val_sht.nc", engine="netcdf4")
+fine_fields = xr.open_dataset("~/Masters/Data/PredictTest/fine_val_sht.nc", engine="netcdf4")
 coarse = torch.from_numpy(cond_fields.to_array().to_numpy()).transpose(0, 1).to(device).float()
 fine = torch.from_numpy(fine_fields.to_array().to_numpy()).transpose(0, 1).to(device).float()
+
+G = mlflow.pytorch.load_model(mod_bigres)
+invariant = xr.open_dataset("~/Masters/Data/PredictTest/DEM_Crop.nc", engine = "netcdf4")
 invariant = torch.from_numpy(invariant.to_array().to_numpy().squeeze(0)).to(device).float()
 
 ds = NetCDFSR(coarse, fine, invariant, device=device)
 dataloader = torch.utils.data.DataLoader(
-    dataset=ds, batch_size=16, shuffle=True
+    dataset=ds, batch_size=16, shuffle=False
 )
-# coarse_curr = coarse[32,:,0:6,0:6]
-# fine2 = fine[:,0:48,0:48]
-torch.cuda.empty_cache()
-RALSD = []
-for i, data in enumerate(dataloader):
-    if(i > 60):
-        break
-    #coarse = data[0].to(device)
-    #print(data[0])
-    #inv = data[2].to(device)
-    print("running batch ", i)
-    #torch.cuda.empty_cache()
-    out = G(data[0],data[2])
-    #print(data[1][:,0,...].size())
-    # real = data[1][:,0,...].cpu().detach().numpy()
-    # zonal = out[:,0,...].cpu().detach().numpy()
-    # merid = out[:,1,...].cpu().detach().numpy()
-    real = data[1].cpu().detach().numpy()
-    fake = out.cpu().detach().numpy()
-    # zquant = np.quantile(zonal, qval, axis = (1,2))
-    # mquant = np.quantile(merid, qval, axis = (1,2))
-    # u99 = np.append(u99,zquant)
-    # v99 = np.append(v99, mquant)
-    
-    distMetric = ralsd(fake,real)
-    t1 = np.mean(distMetric,axis = 0)
-    RALSD.append(t1)
-    #print("RALSD: ",log_dist)
-    del data
-    del out
-    del real
-    #i = i+1
-    
+HR_RALSD = calc_ralsd(G, dataloader)
+test = next(iter(dataloader))
+HR_gen = G(test[0],test[2])
+plt.imshow(HR_gen[1,0,...].cpu().detach())
 
-LR_RALSD = RALSD.copy()
-HR_RALSD = RALSD.copy()
+G = mlflow.pytorch.load_model(mod_smallres)
+invariant = xr.open_dataset("~/Masters/Data/PredictTest/DEM_Coarse.nc", engine = "netcdf4")
+invariant = torch.from_numpy(invariant.to_array().to_numpy().squeeze(0)).to(device).float()
+
+ds = NetCDFSR(coarse, fine, invariant, device=device)
+dataloader = torch.utils.data.DataLoader(
+    dataset=ds, batch_size=16, shuffle=False
+)
+LR_RALSD = calc_ralsd(G, dataloader)
+test = next(iter(dataloader))
+LR_gen = G(test[0],test[2])
+
+plt.imshow(HR_gen[7,0,...].cpu().detach())
+plt.imshow(LR_gen[7,0,...].cpu().detach())
+torch.save(HR_gen.cpu().detach(),"HR_topo_GEN.pt")
+torch.save(LR_gen.cpu().detach(),"LR_topo_GEN.pt")
+
 
 LRral = np.mean(LR_RALSD,axis = 0)
 LRsd = np.std(LR_RALSD,axis = 0)
 HRral = np.mean(HR_RALSD,axis = 0)
 HRsd = np.std(HR_RALSD,axis = 0)
 
-
-plt.plot(HRral, label = "Noise")
-plt.plot(LRral, label = "NoNoise")
+plt.plot(HRral, label = "HighRes")
+plt.plot(LRral, label = "LowRes")
 plt.fill_between(range(64), HRral+HRsd,HRral-HRsd, alpha = .1)
 plt.fill_between(range(64), LRral+LRsd,LRral-LRsd, alpha = .1)
 plt.xlabel("Frequency Group")
 plt.ylabel("Amplitude proportion")
 plt.legend()
+
+
+
+
+
+LR = np.array(LR_RALSD)
+np.savetxt("/home/kiridaust/Masters/DoWnGAN_Kiri/Results/LR_RALSD.csv",LR,delimiter = ',')
+
+HR = np.array(HR_RALSD)
+np.savetxt("/home/kiridaust/Masters/DoWnGAN_Kiri/Results/HR_RALSD.csv",HR,delimiter = ',')
+torch.save(zonal, "/home/kiridaust/Masters/DoWnGAN_Kiri/Results/LRTopo_WindGen.pt")
+
 
 # plt.boxplot((HRU,LRU),notch=True,labels=("HighRes","LowRes"))
 # plt.title("1% quantile of zonal wind speed")

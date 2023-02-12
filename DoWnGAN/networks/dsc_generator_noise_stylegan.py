@@ -80,7 +80,7 @@ class Generator(nn.Module):
         self.conv1f = nn.Conv2d(channels_invariant, filters, kernel_size=3, stride=1, padding=1)
         # Residual blocks
         self.res_blocks = nn.Sequential(*[ResidualInResidualDenseBlock(filters,resolution=filters) for _ in range(num_res_blocks)])
-        self.res_blocksf = nn.Sequential(*[ResidualInResidualDenseBlock(filters,resolution=filters) for _ in range(num_res_blocks_fine)])
+        self.res_blocksf = nn.Sequential(*[ResidualInResidualDenseBlock(filters,resolution=fine_dims) for _ in range(num_res_blocks_fine)])
         # Second conv layer post residual blocks
         self.conv2 = nn.Conv2d(filters, filters, kernel_size=3, stride=1, padding=1)
         
@@ -100,7 +100,7 @@ class Generator(nn.Module):
         self.conv3 = nn.Sequential(
             #nn.Conv2d(fine_dims + filters, fine_dims + filters, kernel_size=1, stride=1, padding=1), ##pointwise convolution
             nn.Conv2d(filters*2, filters, kernel_size=3, stride=1, padding=1),
-            ResidualInResidualDenseBlock(filters,resolution=fine_dims), ##should test whether this helps
+            DenseResidualBlock(filters,resolution=fine_dims), ##should test whether this helps
             nn.LeakyReLU(),
             nn.Conv2d(filters, n_predictands, kernel_size=3, stride=1, padding=1),
         )
