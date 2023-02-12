@@ -17,15 +17,15 @@ import numpy as np
 import torch
 import matplotlib.pyplot as plt
 import os
-os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
-HR = torch.load("C:/Users/kirid/Desktop/Masters/GAN_Results/Validation/HR_topo_GEN.pt")
-LR = torch.load("C:/Users/kirid/Desktop/Masters/GAN_Results/Validation/LR_topo_GEN.pt")
+# os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
+# HR = torch.load("C:/Users/kirid/Desktop/Masters/GAN_Results/Validation/HR_topo_GEN.pt")
+# LR = torch.load("C:/Users/kirid/Desktop/Masters/GAN_Results/Validation/LR_topo_GEN.pt")
 
-num = 7
-plt.imshow(HR[num,1,...])
-plt.imshow(LR[num,1,...])
-np.savetxt("HR_Generate.csv", HR[7,0,...],delimiter=',')
-np.savetxt("LR_Generate.csv", LR[7,0,...],delimiter=',')
+# num = 7
+# plt.imshow(HR[num,1,...])
+# plt.imshow(LR[num,1,...])
+# np.savetxt("HR_Generate.csv", HR[7,0,...],delimiter=',')
+# np.savetxt("LR_Generate.csv", LR[7,0,...],delimiter=',')
 
 
 device = torch.device("cuda:0")
@@ -130,6 +130,27 @@ def calc_ralsd(G,dataloader):
         del out
         del real
     return(RALSD)
+
+mod_noise = "/media/data/mlflow_exp/4/b56771fd635d414d9586dc72019237be/artifacts/Generator/Generator_420"
+G = mlflow.pytorch.load_model(mod_noise)
+
+cond_fields = xr.open_dataset("~/Masters/Data/processed_data/ds_humid/coarse_validation.nc", engine="netcdf4")
+fine_fields = xr.open_dataset("~/Masters/Data/processed_data/ds_humid/fine_validation.nc", engine="netcdf4")
+coarse = torch.from_numpy(cond_fields.to_array().to_numpy()).transpose(0, 1).to(device).float()
+fine = torch.from_numpy(fine_fields.to_array().to_numpy()).transpose(0, 1).to(device).float()
+invariant = xr.open_dataset("~/Masters/Data/temperature/DEM_Use.nc", engine = "netcdf4")
+invariant = torch.from_numpy(invariant.to_array().to_numpy().squeeze(0)).to(device).float()
+
+time_slice = 3600
+noise_gen = G(coarse[time_slice,...],invariant)
+for i in range(100):
+    print("Generating",i)
+    temp = G(coarse[time_slice,...],invariant)
+    noise_gen = torch.cat((noise_gen,temp),1)
+    
+torch.save(noise_gen.cpu().detach(),"ExampleNoiseGen.pt")
+print("Done")
+
 
 mod_smallres = "/media/data/mlflow_exp/4/17d56bf78c714b18a44ae2f5116d0d15/artifacts/Generator/Generator_370"
 mod_bigres = "/media/data/mlflow_exp/4/e286bcc85c8540be938305892ae3ab4c/artifacts/Generator/Generator_370"
