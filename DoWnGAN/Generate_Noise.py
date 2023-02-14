@@ -64,11 +64,14 @@ for i in range(225):
     data_in = next(iter(dataloader))
 
 temp = G(data_in[0],data_in[2])
-noise_gen = temp[0,...]
+noise_gen = temp[0,...].cpu().detach()
 for i in range(100):
+    torch.cuda.empty_cache()
     print("Generating",i)
     temp = G(data_in[0],data_in[2])
-    noise_gen = torch.cat((noise_gen,temp[0,...]),1)
-    
-torch.save(noise_gen.cpu().detach(),"ExampleNoiseGen.pt")
+    noise_gen = torch.cat((noise_gen,temp[0,...].cpu().detach()),0)
+    del temp
+
+print(noise_gen.size())
+torch.save(noise_gen,"ExampleNoiseGen.pt")
 print("Done")
