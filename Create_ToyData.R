@@ -34,6 +34,29 @@ sigmoid <- function(x){
   return(5/(1+exp(-8*x)))
 }
 sample_axes <- c(-1,0,1)
+##generate single test set
+curr_samp <- c(-1,1)
+xaxis <- seq(curr_samp[1],curr_samp[2], length.out = 128)
+curr_samp <- c(-1,1)
+yaxis <- seq(curr_samp[1],curr_samp[2], length.out = 128)
+
+mat <- matrix(data = NA_real_, nrow = 128, ncol = 128)
+for(i in 1:length(xaxis)){
+  for(j in 1:length(yaxis)){
+    meanval <- sigmoid(xaxis[i])*exp(yaxis[j])
+    mat[i,j] <- rnorm(1,mean = meanval,sd = 2)
+  }
+}
+mat2 <- mat^2
+matds <- down_sample_image(mat2,factor = 8, gaussian_blur = T)
+image(matds)
+fine_val <- mat2
+coarse_val <- matds
+for(i in 1:100){
+  fine_val <- abind(fine_val, mat2)
+  coarse_val <- abind(coarse_val, matds)
+}
+
 for(numrast in 1:8000){
   if(numrast %% 100 == 0) cat("iteration",numrast,"\n")
   curr_samp <- sample(sample_axes,size = 2)
