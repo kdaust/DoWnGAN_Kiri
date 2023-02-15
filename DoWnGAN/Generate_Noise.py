@@ -75,3 +75,22 @@ for i in range(100):
 print(noise_gen.size())
 torch.save(noise_gen,"ExampleNoiseGen.pt")
 print("Done")
+
+
+############
+import os
+import numpy as np
+import torch
+import matplotlib.pyplot as plt
+os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
+gen = torch.load("NoiseGens.pt")
+plt.imshow(gen[0])
+plt.imshow(gen[1])
+plt.imshow(gen[50])
+
+np.save("GAN_Noise_Res.npy",gen)
+
+tfine = np.load("C:/Users/kirid/Desktop/Masters/ToyDataSet/fine_train.npy")
+t1 = np.swapaxes(tfine, 0, 2)
+plt.imshow(t1[0,...])
+

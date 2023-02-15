@@ -9,7 +9,7 @@ import torch
 from torch.autograd import grad as torch_grad
 
 import mlflow
-
+highres_in = False
 torch.autograd.set_detect_anomaly(True)
 
 
@@ -32,7 +32,11 @@ class WassersteinGAN:
             fine (torch.Tensor): The fine input.
         """
 
-        fake = self.G(coarse, invariant) ##generate fake image from generator
+        
+        if(highres_in):
+            fake = self.G(coarse, invariant) ##generate fake image from generator
+        else:
+            fake = self.G(coarse)
         #print(fake.shape)
         #print(invariant.shape)
         #fake = torch.cat([fake,invariant],1)
@@ -67,8 +71,11 @@ class WassersteinGAN:
             fine (torch.Tensor): The fine input.
         """
         self.G_optimizer.zero_grad()
-
-        fake = self.G(coarse,invariant)
+        
+        if(highres_in):
+            fake = self.G(coarse, invariant) ##generate fake image from generator
+        else:
+            fake = self.G(coarse)
         c_fake = self.C(fake)
 
         # EK = kinetic_energy_loss(fine, fake)
@@ -135,7 +142,11 @@ class WassersteinGAN:
         for data in dataloader:
             coarse = data[0].to(config.device)
             fine = data[1].to(config.device)
-            invariant = data[2].to(config.device)
+            if(highres_in):
+                invariant = data[2].to(config.device)
+            else:
+                invariant = None
+            
             self._critic_train_iteration(coarse, fine, invariant)
 
             if self.num_steps%hp.critic_iterations == 0:
@@ -159,13 +170,18 @@ class WassersteinGAN:
     
                 # Generate plots from training set
                 cbatch, rbatch, invbatch = next(iter(dataloader))
+                if(not highres_in):
+                    invbatch = -1
                 gen_grid_images(self.G, cbatch, invbatch, rbatch, epoch, "train")
     
                 test_metrics = initialize_metric_dicts({})
                 for data in testdataloader:
                     coarse = data[0].to(config.device)
                     fine = data[1].to(config.device)
-                    invariant = data[2].to(config.device)
+                    if(highres_in):
+                        invariant = data[2].to(config.device)
+                    else:
+                        invariant = None
                     # Track train set metrics
                     test_metrics = gen_batch_and_log_metrics(
                         self.G,
@@ -180,6 +196,8 @@ class WassersteinGAN:
                 post_epoch_metric_mean(test_metrics, "test")
     
                 cbatch, rbatch, invbatch = next(iter(testdataloader))
+                if(not highres_in):
+                    invbatch = -1
                 gen_grid_images(self.G, cbatch, invbatch, rbatch, epoch, "test")
     
                 # Log the models to mlflow pytorch models

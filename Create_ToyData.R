@@ -1,23 +1,41 @@
 library(data.table)
 library(MASS)
+library(terra)
+library(abind)
 
-n <- 10000
-corM <- rbind(c(1.0, 0.6, 0.9), c(0.6, 1.0, 0.5), c(0.9, 0.5, 1.0))
-set.seed(123)
-SigmaEV <- eigen(corM)
-eps <- rnorm(n * ncol(SigmaEV$vectors))
-Meps <- matrix(eps, ncol = n, byrow = TRUE)    
-Meps <- SigmaEV$vectors %*% diag(sqrt(SigmaEV$values)) %*% Meps
-Meps <- t(Meps)
-# target correlation matrix
-corM
+no_obs = 4000             # Number of observations per column
+means = 1:5               # Mean values of each column
+no_cols = 5               # Number of columns
 
+sds = rep(1.5,no_cols)                 # SD of each column
+sd = diag(sds)         # SD in a diagonal matrix for later operations
+
+observations = matrix(rnorm(no_cols * no_obs), nrow = no_cols) # Rd draws N(0,1)
+
+# cor_matrix = matrix(c(1.0, 0.7,0.6,0.5,0.4,
+#                       0.7, 1.0, 0.5,
+#                       0.01, 0.5, 1.0), byrow = T, nrow = 3)     # cor matrix [3 x 3]
+
+cor_matrix <- as.matrix(fread("DoWnGAN_Kiri/ToyDatCovarMat.csv",header = F))
+cov_matrix = sd %*% cor_matrix %*% sd                          # The covariance matrix
+
+Chol = chol(cov_matrix)                                        # C
+sam_eq_mean = t(observations) %*% Chol          # Generating random MVN (0, cov_matrix)
+
+samples = t(sam_eq_mean) + means
+sv <- as.vector(t(samples))
+test_mat <- matrix(sv[1:128^2], nrow = 128, ncol = 128)
+image(test_mat)
+test_r <- rast(test_mat)
+plot(test_r)
+
+library(OpenImageR)
 sigmoid <- function(x){
   return(5/(1+exp(-8*x)))
 }
 sample_axes <- c(-1,0,1)
-for(numrast in 1:1000){
-  cat(".")
+for(numrast in 1:8000){
+  if(numrast %% 100 == 0) cat("iteration",numrast,"\n")
   curr_samp <- sample(sample_axes,size = 2)
   xaxis <- seq(curr_samp[1],curr_samp[2], length.out = 128)
   curr_samp <- sample(sample_axes,size = 2)
@@ -31,15 +49,32 @@ for(numrast in 1:1000){
     }
   }
   mat2 <- mat^2
-  
+  matds <- down_sample_image(mat2,factor = 8, gaussian_blur = T)
   if(numrast == 1){
-    outrast <- rast(mat2)
+    outrast <- mat2
+    outcoarse <- matds
   }else{
-    temp <- rast(mat2)
-    add(outrast) <- temp
+    outrast <- abind(outrast,mat2,along = 3)
+    outcoarse <- abind(outcoarse,matds,along = 3)
   }
 }
 
+image(outrast[,,42])
+image(outcoarse[,,42])
 
-plot(outrast[[4]])
-plot(r$lyr.1)
+library(reticulate)
+np <- import("numpy")
+np$save("fine_train.npy",outrast[,,1:5000])
+np$save("coarse_train.npy",outcoarse[,,1:5000])
+
+np$save("fine_test.npy",outrast[,,5001:7000])
+np$save("coarse_test.npy",outcoarse[,,5001:7000])
+
+np$save("fine_val.npy",outrast[,,7001:8000])
+np$save("coarse_val.npy",outcoarse[,,7001:8000])
+
+
+image(outrast[,,8])
+library(OpenImageR)
+dsimg <- down_sample_image(mat2,factor = 8, gaussian_blur = T)
+image(dsimg)
