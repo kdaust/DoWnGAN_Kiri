@@ -37,10 +37,11 @@ xp = 120
 yp = 120
 sample = fine_gen[:,:,xp,yp].flatten()
 sns.set_style('whitegrid')
+#plot = sns.Plot()
 sns.kdeplot(sample,bw = 0.5)
 real = fine_in[:,:,xp,yp].flatten()
-sns.kdeplot(real,bw = 0.5)
-sns.savefig("ToyDat2_Figure.png")
+myplt = sns.kdeplot(real,bw = 0.5)
+myplt.figure.savefig("ToyDat2_Figure.png")
 print("Done")
 
 # class NetCDFSR(Dataset):
