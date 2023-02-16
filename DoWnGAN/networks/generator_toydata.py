@@ -52,10 +52,13 @@ class DenseResidualBlock(nn.Module):
 
     def forward(self, x):
         noise = torch.normal(0,1,size = [x.shape[0], 1, self.resolution, self.resolution], device=x.device)
+        print("Noise Size",noise.size())
         inputs = torch.cat([x,noise],1)
+        print(inputs.size())
         for block in self.blocks:
             out = block(inputs)
             inputs = torch.cat([inputs, out], 1)
+            print(inputs.size())
         
         noiseScale = noise * self.noise_strength
         out = (out.mul(self.res_scale) + x).add(noiseScale)
