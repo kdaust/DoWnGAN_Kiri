@@ -30,10 +30,11 @@ class DenseResidualBlock(nn.Module):
     The core module of paper: (Residual Dense Network for Image Super-Resolution, CVPR 18)
     """
 
-    def __init__(self, filters, resolution = 16, res_scale=0.2):
+    def __init__(self, filters, resolution = 16, res_scale=0.4):
         super(DenseResidualBlock, self).__init__()
         self.res_scale = res_scale
         self.resolution = resolution
+        noisefilters = filters+1
 
         def block(in_features, non_linearity=True):
             layers = [nn.Conv2d(in_features, filters, 3, 1, 1, bias=True)]
@@ -41,21 +42,23 @@ class DenseResidualBlock(nn.Module):
                 layers += [nn.LeakyReLU()]
             return nn.Sequential(*layers)
 
-        self.b1 = block(in_features=1 * filters)
-        self.b2 = block(in_features=2 * filters)
-        self.b3 = block(in_features=3 * filters)
-        self.b4 = block(in_features=4 * filters)
-        self.b5 = block(in_features=5 * filters, non_linearity=False)
+        self.b1 = block(in_features=1 * noisefilters)
+        self.b2 = block(in_features=2 * noisefilters)
+        self.b3 = block(in_features=3 * noisefilters)
+        self.b4 = block(in_features=4 * noisefilters)
+        self.b5 = block(in_features=5 * noisefilters, non_linearity=False)
         self.blocks = [self.b1, self.b2, self.b3, self.b4, self.b5]
         self.noise_strength = torch.nn.Parameter(torch.ones([]))
 
     def forward(self, x):
-        inputs = x
+        noise = torch.normal(0,1,size = [x.shape[0], 1, self.resolution, self.resolution], device=x.device)
+        inputs = torch.cat([x,noise],1)
         for block in self.blocks:
             out = block(inputs)
             inputs = torch.cat([inputs, out], 1)
-        noise = torch.normal(0,3,size = [x.shape[0], 1, self.resolution, self.resolution], device=x.device) * self.noise_strength
-        out = (out.mul(self.res_scale) + x).add(noise)
+        
+        noiseScale = noise * self.noise_strength
+        out = (out.mul(self.res_scale) + x).add(noiseScale)
         return out
 
 
