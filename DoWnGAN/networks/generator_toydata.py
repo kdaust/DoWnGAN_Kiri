@@ -47,16 +47,16 @@ class DenseResidualBlock(nn.Module):
         self.b4 = block(in_features=4 * filters)
         self.b5 = block(in_features=5 * filters, non_linearity=False)
         self.blocks = [self.b1, self.b2, self.b3, self.b4, self.b5]
-        self.noise_strength = torch.nn.Parameter(torch.zeros([]))
+        self.noise_strength = torch.nn.Parameter(torch.ones([]))
 
     def forward(self, x):
         inputs = x
         for block in self.blocks:
             out = block(inputs)
             inputs = torch.cat([inputs, out], 1)
-        noise = torch.randn([x.shape[0], 1, self.resolution, self.resolution], device=x.device) * self.noise_strength
-        out = out.mul(self.res_scale) + x
-        return out.add_(noise)
+        noise = torch.normal(0,3,size = [x.shape[0], 1, self.resolution, self.resolution], device=x.device) * self.noise_strength
+        out = (out.mul(self.res_scale) + x).add(noise)
+        return out
 
 
 class ResidualInResidualDenseBlock(nn.Module):
@@ -82,7 +82,7 @@ class Generator(nn.Module):
         # Second conv layer post residual blocks
         self.conv2 = nn.Conv2d(filters, filters, kernel_size=3, stride=1, padding=1)
         
-        self.LR_pre = nn.Sequential(self.conv1,ShortcutBlock(nn.Sequential(self.res_blocks,self.conv2)))
+        self.LR_pre = nn.Sequential(self.conv1,self.res_blocks,self.conv2)
         #self.conv2f = nn.Conv2d(fine_dims, fine_dims, kernel_size=3, stride=1, padding=1)
         # Upsampling layers
         upsample_layers = []

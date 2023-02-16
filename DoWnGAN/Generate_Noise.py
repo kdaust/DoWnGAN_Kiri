@@ -12,7 +12,34 @@ import netCDF4
 import numpy as np
 import torch
 import matplotlib.pyplot as plt
+import seaborn as sns
 device = torch.device("cuda:0")
+
+mod_noise = "/media/data/mlflow_exp/4/2bdbd51ff2f54147bc0dd8fde65d7e9d/artifacts/Generator/Generator_490"
+G = mlflow.pytorch.load_model(mod_noise)
+
+data_folder = "/home/kiridaust/Masters/Data/ToyDataSet/"
+coarse_val = np.load(data_folder+"coarse_val_toydat.npy")
+coarse_val = np.swapaxes(coarse_val, 0, 2)
+fine_val = np.load(data_folder+"fine_val_toydat.npy")
+fine_val = np.swapaxes(fine_val, 0, 2)
+
+fine_in = torch.from_numpy(fine_val)[:,None,...]
+coarse_in = torch.from_numpy(coarse_val)[:,None,...].to(device).float()
+
+fine_gen = G(coarse_in)
+fine_gen = fine_gen.cpu().detach()
+plt.imshow(fine_gen[1,0,...])
+plt.imshow(fine_gen[2,0,...])
+plt.imshow(fine_gen[233,0,...])
+
+xp = 120
+yp = 120
+sample = fine_gen[:,:,xp,yp].flatten()
+sns.set_style('whitegrid')
+sns.kdeplot(sample,bw = 0.5)
+real = fine_in[:,:,xp,yp].flatten()
+sns.kdeplot(real,bw = 0.5)
 
 class NetCDFSR(Dataset):
     """Data loader from torch.Tensors"""
