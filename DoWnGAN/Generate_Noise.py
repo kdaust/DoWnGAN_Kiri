@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 device = torch.device("cuda:0")
 
-mod_noise = "/media/data/mlflow_exp/4/2416a6c82c954f5cb0ff6fc1a91215d3/artifacts/Generator/Generator_490"
+mod_noise = "/media/data/mlflow_exp/4/6731eb9b46cd4806bdef870c3e884a49/artifacts/Generator/Generator_490"
 G = mlflow.pytorch.load_model(mod_noise)
 
 data_folder = "/home/kiridaust/Masters/Data/ToyDataSet/"
@@ -29,19 +29,20 @@ coarse_in = torch.from_numpy(coarse_val)[:,None,...].to(device).float()
 
 fine_gen = G(coarse_in)
 fine_gen = fine_gen.cpu().detach()
+torch.save(fine_gen,"ToyData_Generated_v3.pt")
 # plt.imshow(fine_gen[1,0,...])
 # plt.imshow(fine_gen[2,0,...])
 # plt.imshow(fine_gen[233,0,...])
 
-xp = 120
-yp = 120
-sample = fine_gen[:,:,xp,yp].flatten()
-sns.set_style('whitegrid')
+#xp = 120
+#yp = 120
+#sample = fine_gen[:,:,xp,yp].flatten()
+#sns.set_style('whitegrid')
 #plot = sns.Plot()
-sns.kdeplot(sample,bw = 0.5)
-real = fine_in[:,:,xp,yp].flatten()
-myplt = sns.kdeplot(real,bw = 0.5)
-myplt.figure.savefig("ToyDat2_Figure.png")
+#sns.kdeplot(sample,bw = 0.5)
+#real = fine_in[:,:,xp,yp].flatten()
+#myplt = sns.kdeplot(real,bw = 0.5)
+#myplt.figure.savefig("ToyDat2_Figure.png")
 print("Done")
 
 # class NetCDFSR(Dataset):
