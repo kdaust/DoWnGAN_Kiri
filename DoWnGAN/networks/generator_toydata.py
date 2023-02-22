@@ -60,9 +60,10 @@ class DenseResidualBlock(nn.Module):
             inputs = torch.cat([inputs, out, noise], 1)
             #print(inputs.size())
         
-        #noiseScale = noise * self.noise_strength
+        noise = torch.normal(0,1,size = [x.shape[0], 1, self.resolution, self.resolution], device=x.device)
+        noiseScale = noise * self.noise_strength
         out = out.mul(self.res_scale) + x
-        return out
+        return out.add_(noiseScale)
 
 
 class ResidualInResidualDenseBlock(nn.Module):
