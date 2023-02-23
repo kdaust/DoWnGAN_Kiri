@@ -47,7 +47,7 @@ class DenseResidualBlock(nn.Module):
         self.b4 = block(in_features=4 * filters + 4)
         self.b5 = block(in_features=5 * filters + 5, non_linearity=False)
         self.blocks = [self.b1, self.b2, self.b3, self.b4, self.b5]
-        self.noise_strength = torch.nn.Parameter(torch.ones([]))
+        self.noise_strength = torch.nn.Parameter(torch.mul(torch.ones([]),10))
 
     def forward(self, x):
         noise = torch.normal(0,1,size = [x.shape[0], 1, self.resolution, self.resolution], device=x.device)
@@ -56,14 +56,15 @@ class DenseResidualBlock(nn.Module):
         #print(inputs.size())
         for block in self.blocks:
             out = block(inputs)
-            noise = torch.normal(0,1,size = [x.shape[0], 1, self.resolution, self.resolution], device=x.device)
+            noise = torch.normal(0,2,size = [x.shape[0], 1, self.resolution, self.resolution], device=x.device)
             inputs = torch.cat([inputs, out, noise], 1)
             #print(inputs.size())
         
         noise = torch.normal(0,1,size = [x.shape[0], 1, self.resolution, self.resolution], device=x.device)
         noiseScale = noise * self.noise_strength
         out = out.mul(self.res_scale) + x
-        return out.add_(noiseScale)
+        out.add_(noiseScale)
+        return out
 
 
 class ResidualInResidualDenseBlock(nn.Module):
