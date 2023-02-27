@@ -30,7 +30,7 @@ class DenseResidualBlock(nn.Module):
     The core module of paper: (Residual Dense Network for Image Super-Resolution, CVPR 18)
     """
 
-    def __init__(self, filters, resolution = 16, res_scale=0.2):
+    def __init__(self, filters, resolution = 16, res_scale=0.8):
         super(DenseResidualBlock, self).__init__()
         self.res_scale = res_scale
         self.resolution = resolution
@@ -41,23 +41,30 @@ class DenseResidualBlock(nn.Module):
                 layers += [nn.LeakyReLU()]
             return nn.Sequential(*layers)
 
-        self.b1 = block(in_features=1 * filters)
-        self.b2 = block(in_features=2 * filters)
-        self.b3 = block(in_features=3 * filters)
-        self.b4 = block(in_features=4 * filters)
-        self.b5 = block(in_features=5 * filters, non_linearity=False)
+        self.b1 = block(in_features=1 * filters + 1)
+        self.b2 = block(in_features=2 * filters + 2)
+        self.b3 = block(in_features=3 * filters + 3)
+        self.b4 = block(in_features=4 * filters + 4)
+        self.b5 = block(in_features=5 * filters + 5, non_linearity=False)
         self.blocks = [self.b1, self.b2, self.b3, self.b4, self.b5]
-        self.noise_strength = torch.nn.Parameter(torch.zeros([]))
+        self.noise_strength = torch.nn.Parameter(torch.mul(torch.ones([]),10))
 
     def forward(self, x):
-        inputs = x
+        noise = torch.normal(0,1,size = [x.shape[0], 1, self.resolution, self.resolution], device=x.device)
+        #print("Noise Size",noise.size())
+        inputs = torch.cat([x,noise],1)
+        #print(inputs.size())
         for block in self.blocks:
             out = block(inputs)
-            inputs = torch.cat([inputs, out], 1)
-        noise = torch.randn([x.shape[0], 1, self.resolution, self.resolution], device=x.device) * self.noise_strength
+            noise = torch.normal(0,2,size = [x.shape[0], 1, self.resolution, self.resolution], device=x.device)
+            inputs = torch.cat([inputs, out, noise], 1)
+            #print(inputs.size())
+        
+        noise = torch.normal(0,1,size = [x.shape[0], 1, self.resolution, self.resolution], device=x.device)
+        noiseScale = noise * self.noise_strength
         out = out.mul(self.res_scale) + x
-        return out.add_(noise)
-
+        out.add_(noiseScale)
+        return out
 
 class ResidualInResidualDenseBlock(nn.Module):
     def __init__(self, filters, resolution = 16, res_scale=0.2):

@@ -66,7 +66,7 @@ def gen_batch_and_log_metrics(G, C, coarse, real, invariant, d):
     return d
 
 def log_network_models(C, G, epoch):
-    mlflow.pytorch.log_model(C, f"Critic/Critic_{epoch}")
-    mlflow.pytorch.log_state_dict(C.state_dict(), f"Critic/Critic_{epoch}")
+    #mlflow.pytorch.log_model(C, f"Critic/Critic_{epoch}")
+    #mlflow.pytorch.log_state_dict(C.state_dict(), f"Critic/Critic_{epoch}")
     mlflow.pytorch.log_model(G, f"Generator/Generator_{epoch}")
     mlflow.pytorch.log_state_dict(G.state_dict(), f"Generator/Generator_{epoch}")

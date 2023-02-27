@@ -1,6 +1,6 @@
 # Begin - load the data and initiate training
 # Defines the hyperparameter and constants configurationsimport gc
-from DoWnGAN.networks.generator_toydata import Generator
+from DoWnGAN.networks.dsc_generator_noise_stylegan import Generator
 from DoWnGAN.networks.critic import Critic
 from DoWnGAN.GAN.dataloader import NetCDFSR
 import DoWnGAN.mlflow_tools.mlflow_utils as mlf 
@@ -16,16 +16,16 @@ import torch
 
 from mlflow.tracking import MlflowClient
 
-highres_in = False
-data_folder = "/home/kiridaust/Masters/Data/ToyDataSet/"
+highres_in = True
+data_folder = "/home/kiridaust/Masters/Data/processed_data/ds_wind/"
 
 def load_preprocessed():
     if(highres_in):
-        coarse_train = xr.open_dataset("~/Masters/Data/processed_data/ds_humid/coarse_train.nc", engine="netcdf4")
-        fine_train = xr.open_dataset("~/Masters/Data/processed_data/ds_humid/fine_train.nc", engine="netcdf4")
-        coarse_test = xr.open_dataset("~/Masters/Data/processed_data/ds_humid/coarse_test.nc", engine="netcdf4")
-        fine_test = xr.open_dataset("~/Masters/Data/processed_data/ds_humid/fine_test.nc", engine="netcdf4")
-        invarient = xr.open_dataset("~/Masters/Data/temperature/DEM_Use.nc", engine="netcdf4")
+        coarse_train = xr.open_dataset(data_folder + "coarse_train_sht.nc", engine="netcdf4")
+        fine_train = xr.open_dataset(data_folder + "fine_train_sht.nc", engine="netcdf4")
+        coarse_test = xr.open_dataset(data_folder + "coarse_test.nc", engine="netcdf4")
+        fine_test = xr.open_dataset(data_folder + "fine_test.nc", engine="netcdf4")
+        invarient = xr.open_dataset(data_folder + "DEM_Crop.nc", engine="netcdf4")
         return coarse_train, fine_train, coarse_test, fine_test, invarient
     else:
        coarse_train = np.load(data_folder+"coarse_train.npy")
@@ -80,16 +80,16 @@ class StageData:
 
         # Get shapes for networks
         self.fine_dim_n = fine_train.shape[-1]
-        #self.n_predictands = fine_train.shape[1] ##adding invariant
+        self.n_predictands = fine_train.shape[1] ##adding invariant
         self.coarse_dim_n = coarse_train.shape[-1]
-        #self.n_covariates = coarse_train.shape[1]##adding invarient
+        self.n_covariates = coarse_train.shape[1]##adding invarient
         self.n_invariant = 1 #don't hard code
 
-        # print("Network dimensions: ")
-        # print("Fine: ", self.fine_dim_n, "x", self.n_predictands)
-        # print("Coarse: ", self.coarse_dim_n, "x", self.n_covariates)
         
         if(highres_in):
+            print("Network dimensions: ")
+            print("Fine: ", self.fine_dim_n, "x", self.n_predictands)
+            print("Coarse: ", self.coarse_dim_n, "x", self.n_covariates)
             print("Invariant: ", invarient.shape[1], "x", self.n_invariant)
             self.critic = Critic(self.coarse_dim_n, self.fine_dim_n, self.n_predictands).to(config.device)
             self.generator = Generator(self.coarse_dim_n, self.fine_dim_n, self.n_covariates, self.n_invariant, self.n_predictands).to(config.device)
