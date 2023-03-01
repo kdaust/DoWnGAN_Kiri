@@ -34,15 +34,15 @@ fine_gen = fine_gen.cpu().detach()
 # plt.imshow(fine_gen[2,0,...])
 # plt.imshow(fine_gen[233,0,...])
 
-fine_gen = torch.load("C:/Users/kirid/Desktop/Masters/DoWnGAN_Kiri/ToyData_Generated_v3.pt")
+fine_gen = torch.load("C:/Users/kirid/Desktop/Masters/DoWnGAN_Kiri/ToyData_Generated_v5.pt")
 fine_in = np.load("C:/Users/kirid/Desktop/Masters/DoWnGAN_Kiri/fine_val_toydat.npy")
 fine_in = torch.from_numpy(np.swapaxes(fine_in,0,2))[:,None,...]
 
 plt.imshow(fine_gen[0,0,...])
 plt.imshow(fine_gen[42,0,...])
 
-xp = 120
-yp = 120
+xp = 64
+yp = 64
 sample = fine_gen[:,:,xp,yp].flatten()
 sns.set_style('whitegrid')
 #plot = sns.Plot()

@@ -19,17 +19,29 @@ mod_noise = "/media/data/mlflow_exp/4/c9212bcf20aa4a8b9f3bec1e33548b26/artifacts
 G = mlflow.pytorch.load_model(mod_noise)
 
 data_folder = "/home/kiridaust/Masters/Data/processed_data/ds_wind/"
+
+cond_fields = xr.open_dataset(data_folder + "coarse_validation.nc", engine="netcdf4")
+fine_fields = xr.open_dataset(data_folder + "fine_validation.nc", engine="netcdf4")
+coarse = torch.from_numpy(cond_fields.to_array().to_numpy()).transpose(0, 1).to(device).float()
+fine = torch.from_numpy(fine_fields.to_array().to_numpy()).transpose(0, 1).to(device).float()
+invariant = xr.open_dataset(data_folder + "DEM_Crop.nc", engine = "netcdf4")
+invariant = torch.from_numpy(invariant.to_array().to_numpy().squeeze(0)).to(device).float()
+
 #coarse_val = np.load(data_folder+"coarse_val_toydat.npy")
 #coarse_val = np.swapaxes(coarse_val, 0, 2)
 #fine_val = np.load(data_folder+"fine_val_toydat.npy")
 #fine_val = np.swapaxes(fine_val, 0, 2)
 
-fine_in = torch.from_numpy(fine_val)[:,None,...]
-coarse_in = torch.from_numpy(coarse_val)[:,None,...].to(device).float()
+#fine_in = torch.from_numpy(fine_val)[:,None,...]
+coarse_in = coarse[42,...]
+print(coarse_in.size())
+coarse_in = coarse_in.unsqueeze(0).repeat(250,1,1,1)
+print(coarse_in.size())
 
-fine_gen = G(coarse_in)
+
+fine_gen = G(coarse_in, invariant)
 fine_gen = fine_gen.cpu().detach()
-torch.save(fine_gen,"ToyData_Generated_v5.pt")
+torch.save(fine_gen,"Wind_Generated_v1.pt")
 # plt.imshow(fine_gen[1,0,...])
 # plt.imshow(fine_gen[2,0,...])
 # plt.imshow(fine_gen[233,0,...])
