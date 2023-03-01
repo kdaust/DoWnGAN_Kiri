@@ -15,14 +15,14 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 device = torch.device("cuda:0")
 
-mod_noise = "/media/data/mlflow_exp/4/c68c5e0bb03f481b8ab797487902f1f3/artifacts/Generator/Generator_490"
+mod_noise = "/media/data/mlflow_exp/4/c9212bcf20aa4a8b9f3bec1e33548b26/artifacts/Generator/Generator_490"
 G = mlflow.pytorch.load_model(mod_noise)
 
-data_folder = "/home/kiridaust/Masters/Data/ToyDataSet/"
-coarse_val = np.load(data_folder+"coarse_val_toydat.npy")
-coarse_val = np.swapaxes(coarse_val, 0, 2)
-fine_val = np.load(data_folder+"fine_val_toydat.npy")
-fine_val = np.swapaxes(fine_val, 0, 2)
+data_folder = "/home/kiridaust/Masters/Data/processed_data/ds_wind/"
+#coarse_val = np.load(data_folder+"coarse_val_toydat.npy")
+#coarse_val = np.swapaxes(coarse_val, 0, 2)
+#fine_val = np.load(data_folder+"fine_val_toydat.npy")
+#fine_val = np.swapaxes(fine_val, 0, 2)
 
 fine_in = torch.from_numpy(fine_val)[:,None,...]
 coarse_in = torch.from_numpy(coarse_val)[:,None,...].to(device).float()
