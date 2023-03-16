@@ -42,10 +42,10 @@ class DenseResidualBlock(nn.Module):
             return nn.Sequential(*layers)
 
         self.b1 = block(in_features=1 * filters + 1)
-        self.b2 = block(in_features=2 * filters + 1)
-        self.b3 = block(in_features=3 * filters + 1)
-        self.b4 = block(in_features=4 * filters + 1)
-        self.b5 = block(in_features=5 * filters + 1, non_linearity=False)
+        self.b2 = block(in_features=2 * filters + 2)
+        self.b3 = block(in_features=3 * filters + 3)
+        self.b4 = block(in_features=4 * filters + 4)
+        self.b5 = block(in_features=5 * filters + 5, non_linearity=False)
         self.blocks = [self.b1, self.b2, self.b3, self.b4, self.b5]
         self.noise_strength = torch.nn.Parameter(torch.mul(torch.ones([]),10))
 
@@ -57,8 +57,9 @@ class DenseResidualBlock(nn.Module):
         for block in self.blocks:
             out = block(inputs)
             noise = torch.normal(0,2,size = [x.shape[0], 1, self.resolution, self.resolution], device=x.device)
-            inputs = torch.cat([inputs, out], 1)
-            inputs.add_(noise)
+            inputs = torch.cat([inputs, out, noise], 1)
+            # inputs = torch.cat([inputs, out], 1)
+            # inputs.add_(noise)
             #print(inputs.size())
         
         noise = torch.normal(0,1,size = [x.shape[0], 1, self.resolution, self.resolution], device=x.device)
@@ -107,8 +108,9 @@ class Generator(nn.Module):
         self.upsampling = nn.Sequential(*upsample_layers)
         # Final output block
         self.conv3 = nn.Sequential(
+            DenseResidualBlock(filters*2,resolution=fine_dims),
             #nn.Conv2d(fine_dims + filters, fine_dims + filters, kernel_size=1, stride=1, padding=1), ##pointwise convolution
-            nn.Conv2d(filters*2 + 1, filters + 1, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(filters*2, filters + 1, kernel_size=3, stride=1, padding=1),
             nn.Conv2d(filters + 1, filters + 1, 3, 1, 1, bias=True),
             nn.LeakyReLU(),
             nn.Conv2d(filters + 1, n_predictands, kernel_size=3, stride=1, padding=1),
@@ -120,7 +122,8 @@ class Generator(nn.Module):
         #print(outc.size())
 
         outf = self.HR_pre(x_fine)
-        noise = torch.normal(0,2,size = [outf.shape[0], 1, self.fine_res, self.fine_res], device=outf.device)
-        out = torch.cat((outc,outf,noise),1)
+        out = torch.cat((outc,outf),1)
+        # noise = torch.normal(0,2,size = [outf.shape[0], 1, self.fine_res, self.fine_res], device=outf.device)
+        # out = torch.cat((outc,outf,noise),1)
         out = self.conv3(out)
         return out

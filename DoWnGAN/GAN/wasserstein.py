@@ -10,6 +10,7 @@ from torch.autograd import grad as torch_grad
 
 import mlflow
 highres_in = True
+freq_sep = True
 torch.autograd.set_detect_anomaly(True)
 
 
@@ -31,34 +32,35 @@ class WassersteinGAN:
             coarse (torch.Tensor): The coarse input.
             fine (torch.Tensor): The fine input.
         """
-
-        
         if(highres_in):
             fake = self.G(coarse, invariant) ##generate fake image from generator
         else:
             fake = self.G(coarse)
-        #print(fake.shape)
-        #print(invariant.shape)
-        #fake = torch.cat([fake,invariant],1)
-        #print(fine.size())
-        c_real = self.C(fine) ##make prediction for real image
-        #print(fake.size())
-        c_fake = self.C(fake) ##make prediction for generated image
+        
+        if(freq_sep):
+            fake_low = hp.low(hp.rf(fake))
+            real_low = hp.low(hp.rf(fine))
 
-        gradient_penalty = hp.gp_lambda * self._gp(fine, fake, self.C)
+            fake_high = fake - fake_low
+            real_high = fine - real_low
 
+            c_real = self.C(real_high)
+            c_fake = self.C(fake_high)
+
+            gradient_penalty = hp.gp_lambda * self._gp(real_high, fake_high, self.C)
+        else:
+           c_real = self.C(fine) ##make prediction for real image
+           c_fake = self.C(fake) ##make prediction for generated image
+
+           gradient_penalty = hp.gp_lambda * self._gp(fine, fake, self.C) 
+            
         # Zero the gradients
         self.C_optimizer.zero_grad()
-
-
         c_real_mean = torch.mean(c_real)
         c_fake_mean = torch.mean(c_fake)
 
         critic_loss = c_fake_mean - c_real_mean + gradient_penalty
-        w_estimate = c_real_mean - c_fake_mean ##may have to adjust thsi
-
         critic_loss.backward(retain_graph = True)
-
         # Update the critic
         self.C_optimizer.step()
 
@@ -76,17 +78,20 @@ class WassersteinGAN:
             fake = self.G(coarse, invariant) ##generate fake image from generator
         else:
             fake = self.G(coarse)
-        c_fake = self.C(fake)
+        
+        if(freq_sep):
+            fake_low = hp.low(hp.rf(fake))
+            real_low = hp.low(hp.rf(fine))
 
-        # EK = kinetic_energy_loss(fine, fake)
-
-        # Calculate generator loss
-        # Uncomment for KE loss only
-        g_loss = -torch.mean(c_fake)*hp.gamma
-        # g_loss = g_loss + 10*EK
+            fake_high = fake - fake_low
+            c_fake = self.C(fake_high)
+            cont_loss = content_loss(fake_low, real_low, device=config.device)
+        else:
+            c_fake = self.C(fake)
+            cont_loss = content_loss(fake, fine, device=config.device)
 
         # Add content loss and create objective function
-        g_loss += hp.content_lambda * content_loss(fake, fine, device=config.device)
+        g_loss = -torch.mean(c_fake) * hp.gamma + hp.content_lambda * cont_loss
 
         g_loss.backward()
 
@@ -125,7 +130,7 @@ class WassersteinGAN:
         gradients_norm = torch.sqrt(torch.sum(gradients ** 2, dim=1) + 1e-12)
 
         # Return gradient penalty
-        return hp.gp_lambda * ((gradients_norm - 1) ** 2).mean()
+        return hp.gp_lambda * torch.mean((gradients_norm - 1) ** 2)
 
 
     def _train_epoch(self, dataloader, testdataloader, epoch):

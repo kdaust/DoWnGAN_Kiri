@@ -53,6 +53,14 @@ if(highres_in):
     coarse_test = torch.from_numpy(coarse_test.to_array().to_numpy()).transpose(0, 1).to(config.device).float()
     fine_test = torch.from_numpy(fine_test.to_array().to_numpy()).transpose(0, 1).to(config.device).float()
     invarient = torch.from_numpy(invarient.to_array().to_numpy().squeeze(0)).to(config.device).float()
+    # Uncomment to add stochasticity
+    # #torch.normal(0,2,size = [x.shape[0], 1, self.resolution, self.resolution], device=x.device)
+    # noise_train = torch.normal(0,1,size = [coarse_train.shape[0], 1, coarse_train.shape[2],coarse_train.shape[3]], device=config.device)
+    # noise_test = torch.normal(0,1,size = [coarse_test.shape[0], 1, coarse_test.shape[2],coarse_test.shape[3]], device=config.device)
+    # noise_inv = torch.normal(0,1, size = [1,128,128],device=config.device)
+    # invarient = torch.cat([invarient,noise_inv], 0)
+    # coarse_train = torch.cat([coarse_train, noise_train], 1)
+    # coarse_test = torch.cat([coarse_test, noise_test], 1)
 else:
     coarse_train = torch.from_numpy(coarse_train)[:,None,...].to(config.device).float()
     fine_train = torch.from_numpy(fine_train)[:,None,...].to(config.device).float()
@@ -62,14 +70,6 @@ print("Yep this works...")
 
 class StageData:
     def __init__(self, ):
-
-
-        # Uncomment to add stochasticity
-        #noise_train = torch.normal(mean=torch.zeros_like(coarse_train[:, :1, ...]), std=torch.ones_like(coarse_train[:, :1, ...]))
-        #noise_test = torch.normal(mean=torch.zeros_like(coarse_test[:, :1, ...]), std=torch.ones_like(coarse_test[:, :1, ...]))
-
-        # coarse_train = torch.cat([coarse_train, noise_train], 1)
-        # coarse_test = torch.cat([coarse_test, noise_test], 1)
 
 
         print("Coarse data shape: ", coarse_train.shape)
@@ -83,7 +83,7 @@ class StageData:
         self.n_predictands = fine_train.shape[1] ##adding invariant
         self.coarse_dim_n = coarse_train.shape[-1]
         self.n_covariates = coarse_train.shape[1]##adding invarient
-        self.n_invariant = 1 #don't hard code
+        self.n_invariant = invarient.shape[0] #don't hard code
 
         
         if(highres_in):

@@ -13,22 +13,50 @@ import numpy as np
 import torch
 import matplotlib.pyplot as plt
 import seaborn as sns
+import pysteps as ps
 device = torch.device("cuda:0")
 
-mod_noise = "/media/data/mlflow_exp/4/2416a6c82c954f5cb0ff6fc1a91215d3/artifacts/Generator/Generator_490"
-G = mlflow.pytorch.load_model(mod_noise)
+data_folder = "/home/kiridaust/Masters/Data/processed_data/ds_wind/"
+fine_fields = xr.open_dataset(data_folder + "fine_validation.nc", engine="netcdf4")
+fine = torch.from_numpy(fine_fields.to_array().to_numpy()).transpose(0, 1)
+real = fine[508,0,...]
 
-data_folder = "/home/kiridaust/Masters/Data/ToyDataSet/"
-coarse_val = np.load(data_folder+"coarse_val_toydat.npy")
-coarse_val = np.swapaxes(coarse_val, 0, 2)
-fine_val = np.load(data_folder+"fine_val_toydat.npy")
-fine_val = np.swapaxes(fine_val, 0, 2)
+gen = torch.load("/home/kiridaust/Masters/DoWnGAN_Kiri/Generated_Stochastic/Wind_Generated_958a0ed957424681843fe9ebc0a279e7.pt")
+fake = gen[:,0,...]
+rhist = ps.verification.ensscores.rankhist(fake.numpy(),real.numpy(),None)
+plt.plot(rhist)
 
-fine_in = torch.from_numpy(fine_val)[:,None,...]
-coarse_in = torch.from_numpy(coarse_val)[:,None,...].to(device).float()
+rankvals = []
+for i in range(128):
+    for j in range(128):
+        obs = real[i,j].numpy()
+        ensemble = fake[:,i,j].flatten().numpy()
+        allvals = np.append(ensemble,obs)
+        rankvals.append(sorted(allvals).index(obs))
+        
+plt.hist(rankvals)
 
-fine_gen = G(coarse_in)
-fine_gen = fine_gen.cpu().detach()
+
+plt.imshow(real)
+plt.imshow(gen[1,0,...])
+plt.imshow(gen[2,0,...])
+plt.imshow(gen[3,0,...])
+plt.imshow(gen[4,0,...])
+
+# mod_noise = "/media/data/mlflow_exp/4/2416a6c82c954f5cb0ff6fc1a91215d3/artifacts/Generator/Generator_490"
+# G = mlflow.pytorch.load_model(mod_noise)
+
+# data_folder = "/home/kiridaust/Masters/Data/ToyDataSet/"
+# coarse_val = np.load(data_folder+"coarse_val_toydat.npy")
+# coarse_val = np.swapaxes(coarse_val, 0, 2)
+# fine_val = np.load(data_folder+"fine_val_toydat.npy")
+# fine_val = np.swapaxes(fine_val, 0, 2)
+
+# fine_in = torch.from_numpy(fine_val)[:,None,...]
+# coarse_in = torch.from_numpy(coarse_val)[:,None,...].to(device).float()
+
+# fine_gen = G(coarse_in)
+# fine_gen = fine_gen.cpu().detach()
 
 # plt.imshow(fine_gen[1,0,...])
 # plt.imshow(fine_gen[2,0,...])
