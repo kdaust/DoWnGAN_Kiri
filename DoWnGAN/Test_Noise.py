@@ -34,18 +34,46 @@ fine_gen = fine_gen.cpu().detach()
 # plt.imshow(fine_gen[2,0,...])
 # plt.imshow(fine_gen[233,0,...])
 
-fine_gen = torch.load("C:/Users/kirid/Desktop/Masters/DoWnGAN_Kiri/ToyData_Generated_v5.pt")
+noise_inside = torch.load("C:/Users/kirid/Desktop/Masters/DoWnGAN_Kiri/Wind_Noise_Inside.pt")
+plt.imshow(noise_inside[132,0,...])
+
+noise_cov = torch.load("C:/Users/kirid/Desktop/Masters/DoWnGAN_Kiri/Wind_Noise_Input.pt")
+plt.imshow(noise_cov[132,0,...])
+plt.imshow(noise_cov[1,0,...])
+
 fine_in = np.load("C:/Users/kirid/Desktop/Masters/DoWnGAN_Kiri/fine_val_toydat.npy")
 fine_in = torch.from_numpy(np.swapaxes(fine_in,0,2))[:,None,...]
 
-plt.imshow(fine_gen[0,0,...])
-plt.imshow(fine_gen[42,0,...])
+import scipy as sp
+wass_dist = np.zeros([128,128])
+for x in range(128):
+    for y in range(128):
+        fake_dist = fine_gen[:,0,x,y].flatten()
+        true_dist = fine_in[:,0,x,y].flatten()
+        wass_dist[x,y] = sp.stats.wasserstein_distance(true_dist,fake_dist)
+        
+plt.imshow(wass_dist)
 
+for i in range(8):
+    plt.figure()
+    plt.imshow(noise_inside[i,0,...])
+    plt.show()
+
+img_std = torch.std(noise_cov,dim=0)
+plt.imshow(img_std[0,...])
+plt.imshow(img_std[1,...])
+
+sns.set_style('white')
 xp = 64
 yp = 64
-sample = fine_gen[:,:,xp,yp].flatten()
-sns.set_style('whitegrid')
-#plot = sns.Plot()
+sample = noise_cov[:,0,xp,yp].flatten()
+sns.kdeplot(sample,label = "Generated")
+real = fine_in[:,:,xp,yp].flatten()
+sns.kdeplot(real,label = "real")
+
+xp = 5
+yp = 5
+sample = fine_gen[:,0,xp,yp].flatten()
 sns.kdeplot(sample,label = "Generated")
 real = fine_in[:,:,xp,yp].flatten()
 sns.kdeplot(real,label = "real")
