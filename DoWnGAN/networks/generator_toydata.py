@@ -105,7 +105,7 @@ class Generator(nn.Module):
         self.conv3 = nn.Sequential(
             #nn.Conv2d(fine_dims + filters, fine_dims + filters, kernel_size=1, stride=1, padding=1), ##pointwise convolution
             nn.Conv2d(filters, filters, kernel_size=3, stride=1, padding=1),
-            DenseResidualBlock(filters,resolution=fine_dims), ##should test whether this helps
+            ResidualInResidualDenseBlock(filters,resolution=fine_dims), ##should test whether this helps
             nn.LeakyReLU(),
             nn.Conv2d(filters, n_predictands, kernel_size=3, stride=1, padding=1),
         )
