@@ -16,8 +16,9 @@ import torch
 
 from mlflow.tracking import MlflowClient
 
-highres_in = True
-data_folder = "/home/kiridaust/Masters/Data/processed_data/ds_wind/"
+highres_in = False
+#data_folder = "/home/kiridaust/Masters/Data/processed_data/ds_wind/"
+data_folder = "/home/kiridaust/Masters/Data/ToyDataSet/"
 
 def load_preprocessed():
     if(highres_in):
@@ -77,16 +78,13 @@ class StageData:
         if(highres_in):
             print("Invarient shape: ", invarient.shape)
 
-
-        # Get shapes for networks
         self.fine_dim_n = fine_train.shape[-1]
         self.n_predictands = fine_train.shape[1] ##adding invariant
         self.coarse_dim_n = coarse_train.shape[-1]
         self.n_covariates = coarse_train.shape[1]##adding invarient
-        self.n_invariant = invarient.shape[0] #don't hard code
-
-        
         if(highres_in):
+            # Get shapes for networks
+            self.n_invariant = invarient.shape[0] #don't hard code
             print("Network dimensions: ")
             print("Fine: ", self.fine_dim_n, "x", self.n_predictands)
             print("Coarse: ", self.coarse_dim_n, "x", self.n_covariates)

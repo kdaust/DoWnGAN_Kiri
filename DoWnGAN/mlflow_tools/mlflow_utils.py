@@ -19,5 +19,5 @@ def define_experiment(mlclient):
     return mlclient.get_experiment_by_name(set_exp).experiment_id
 
 def write_tags():
-    choice = "(16x16) area with wind fields, noise in noise_stylegan with content_lambda = 1 and PFS!"
+    choice = "(16x16) toydataset, noise in noise_stylegan with content_lambda = 1 and PFS!"
     return choice
