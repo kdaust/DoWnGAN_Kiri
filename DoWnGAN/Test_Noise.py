@@ -43,24 +43,45 @@ plt.imshow(gen[2,0,...])
 plt.imshow(gen[3,0,...])
 plt.imshow(gen[4,0,...])
 
-# mod_noise = "/media/data/mlflow_exp/4/2416a6c82c954f5cb0ff6fc1a91215d3/artifacts/Generator/Generator_490"
-# G = mlflow.pytorch.load_model(mod_noise)
+mod_noise = "/media/data/mlflow_exp/4/ccfb1a914fcd43c58aae2ef2c27a54ef/artifacts/Generator/Generator_500"
+G = mlflow.pytorch.load_model(mod_noise)
 
-# data_folder = "/home/kiridaust/Masters/Data/ToyDataSet/"
-# coarse_val = np.load(data_folder+"coarse_val_toydat.npy")
-# coarse_val = np.swapaxes(coarse_val, 0, 2)
-# fine_val = np.load(data_folder+"fine_val_toydat.npy")
-# fine_val = np.swapaxes(fine_val, 0, 2)
+data_folder = "/home/kiridaust/Masters/Data/ToyDataSet/"
+coarse_val = np.load(data_folder+"coarse_val_toydat.npy")
+coarse_val = np.swapaxes(coarse_val, 0, 2)
+fine_val = np.load(data_folder+"fine_val_toydat.npy")
+fine_val = np.swapaxes(fine_val, 0, 2)
 
-# fine_in = torch.from_numpy(fine_val)[:,None,...]
-# coarse_in = torch.from_numpy(coarse_val)[:,None,...].to(device).float()
+fine_in = torch.from_numpy(fine_val)[:,None,...]
+coarse_in = torch.from_numpy(coarse_val)[:,None,...].to(device).float()
 
-# fine_gen = G(coarse_in)
-# fine_gen = fine_gen.cpu().detach()
+plt.imshow(coarse_in[32,0,...].cpu())
 
-# plt.imshow(fine_gen[1,0,...])
-# plt.imshow(fine_gen[2,0,...])
-# plt.imshow(fine_gen[233,0,...])
+coarse_sht = coarse_in[0:50,...]
+fine_gen = G(coarse_sht)
+fine_gent1 = fine_gen.cpu().detach()
+del fine_gen
+fine_gen = G(coarse_sht)
+fine_gent2 = fine_gen.cpu().detach()
+del fine_gen
+fine_gen = G(coarse_sht)
+fine_gent3 = fine_gen.cpu().detach()
+del fine_gen
+#plt.imshow(fine_gent3[5,0,...])
+fine_gen = torch.cat([fine_gent1,fine_gent2,fine_gent3],0)
+
+
+sns.set_style('white')
+xp = 100
+yp = 32
+sample = fine_gen[:,0,xp,yp].flatten()
+sns.kdeplot(sample,label = "Generated")
+real = fine_in[0:150,0,xp,yp].flatten()
+sns.kdeplot(real,label = "real")
+
+plt.imshow(fine_gen[1,0,...])
+plt.imshow(fine_gen[2,0,...])
+plt.imshow(fine_gen[130,0,...])
 
 noise_inside = torch.load("C:/Users/kirid/Desktop/Masters/DoWnGAN_Kiri/Wind_Noise_Inside.pt")
 plt.imshow(noise_inside[132,0,...])
@@ -77,7 +98,7 @@ wass_dist = np.zeros([128,128])
 for x in range(128):
     for y in range(128):
         fake_dist = fine_gen[:,0,x,y].flatten()
-        true_dist = fine_in[:,0,x,y].flatten()
+        true_dist = fine_in[0:150,0,x,y].flatten()
         wass_dist[x,y] = sp.stats.wasserstein_distance(true_dist,fake_dist)
         
 plt.imshow(wass_dist)
