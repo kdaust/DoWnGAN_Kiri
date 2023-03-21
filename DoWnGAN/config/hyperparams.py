@@ -28,7 +28,7 @@ save_every = 100
 use_cuda = True
 
 # Frequency separation parameters
-filter_size = 15
+filter_size = 5
 padding = filter_size // 2
 low = nn.AvgPool2d(filter_size, stride=1, padding=0)
 rf = nn.ReplicationPad2d(padding)

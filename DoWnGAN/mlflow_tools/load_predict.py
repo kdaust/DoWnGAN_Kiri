@@ -17,6 +17,7 @@ import numpy as np
 import torch
 import matplotlib.pyplot as plt
 import os
+import pickle
 # os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
 # HR = torch.load("C:/Users/kirid/Desktop/Masters/GAN_Results/Validation/HR_topo_GEN.pt")
 # LR = torch.load("C:/Users/kirid/Desktop/Masters/GAN_Results/Validation/LR_topo_GEN.pt")
@@ -95,7 +96,8 @@ class NetCDFSR(Dataset):
             idx = idx.tolist()
         fine_ = self.fine[idx,...]
         coarse_ = self.coarse[idx,...]
-        invarient_ = self.invarient
+        invarient_ = self.invarient[idx,...]
+        #invarient_ = self.invarient
         return coarse_, fine_, invarient_
 
 
@@ -139,114 +141,49 @@ coarse = torch.from_numpy(cond_fields.to_array().to_numpy()).transpose(0, 1).to(
 fine = torch.from_numpy(fine_fields.to_array().to_numpy()).transpose(0, 1).to(device).float()
 invariant = xr.open_dataset(data_folder + "DEM_Crop.nc", engine = "netcdf4")
 invariant = torch.from_numpy(invariant.to_array().to_numpy()).to(device).float()
+invariant = invariant.repeat(coarse.shape[0],1,1,1)
+noise_f = torch.normal(0,1,size = [invariant.shape[0],1,128,128], device=device)
+noise_c = torch.normal(0,1,size = [coarse.shape[0], 1, coarse.shape[2],coarse.shape[3]], device=device)
+coarse_noise = torch.cat([coarse,noise_c],1)
+invariant_noise = torch.cat([invariant,noise_f],1)
+
+ds_nc = NetCDFSR(coarse_noise, fine, invariant, device=device)
+ds_nb = NetCDFSR(coarse_noise, fine, invariant_noise, device=device)
 ds = NetCDFSR(coarse, fine, invariant, device=device)
+datasets = [ds_nc,ds_nb,ds,ds] ##datasets for each model
 
-##create dataloader with noise and no noise
-dataloader = torch.utils.data.DataLoader(
-    dataset=ds, batch_size=16, shuffle=False
-)
-
+res = dict()
 for i in range(len(models)):
+    print("Analysing model",modNm[i])
     mod_noise = "/media/data/mlflow_exp/4/" + models[i] +"/artifacts/Generator/Generator_500"
     G = mlflow.pytorch.load_model(mod_noise)
+    dataloader = torch.utils.data.DataLoader(
+        dataset=datasets[i], batch_size=16, shuffle=False
+    )
     
-    
-    LR_RALSD = calc_ralsd(G, dataloader)
-    LRral = np.mean(LR_RALSD,axis = 0)
-    LRsd = np.std(LR_RALSD,axis = 0)
-    HRral = np.mean(HR_RALSD,axis = 0)
-    HRsd = np.std(HR_RALSD,axis = 0)
-
-    plt.plot(HRral, label = "HighRes")
-    plt.plot(LRral, label = "LowRes")
-    plt.fill_between(range(64), HRral+HRsd,HRral-HRsd, alpha = .1)
-    plt.fill_between(range(64), LRral+LRsd,LRral-LRsd, alpha = .1)
-    plt.xlabel("Frequency Group")
-    plt.ylabel("Amplitude proportion")
+    RALSD = calc_ralsd(G, dataloader)
+    ral = np.mean(RALSD,axis = 0)
+    sdral = np.std(RALSD,axis = 0)
+    res[modNm[i]] = np.column_stack((ral,sdral))
 
 
-cond_fields = xr.open_dataset("~/Masters/Data/processed_data/ds_humid/coarse_validation.nc", engine="netcdf4")
-fine_fields = xr.open_dataset("~/Masters/Data/processed_data/ds_humid/fine_validation.nc", engine="netcdf4")
-coarse = torch.from_numpy(cond_fields.to_array().to_numpy()).transpose(0, 1).to(device).float()
-fine = torch.from_numpy(fine_fields.to_array().to_numpy()).transpose(0, 1).to(device).float()
-invariant = xr.open_dataset("~/Masters/Data/temperature/DEM_Use.nc", engine = "netcdf4")
-invariant = torch.from_numpy(invariant.to_array().to_numpy().squeeze(0)).to(device).float()
-
-time_slice = 3600
-noise_gen = G(coarse[time_slice,...],invariant)
-for i in range(100):
-    print("Generating",i)
-    temp = G(coarse[time_slice,...],invariant)
-    noise_gen = torch.cat((noise_gen,temp),1)
-    
-torch.save(noise_gen.cpu().detach(),"ExampleNoiseGen.pt")
-print("Done")
-
-
-mod_smallres = "/media/data/mlflow_exp/4/17d56bf78c714b18a44ae2f5116d0d15/artifacts/Generator/Generator_370"
-mod_bigres = "/media/data/mlflow_exp/4/e286bcc85c8540be938305892ae3ab4c/artifacts/Generator/Generator_370"
-cond_fields = xr.open_dataset("~/Masters/Data/PredictTest/coarse_val_sht.nc", engine="netcdf4")
-fine_fields = xr.open_dataset("~/Masters/Data/PredictTest/fine_val_sht.nc", engine="netcdf4")
-coarse = torch.from_numpy(cond_fields.to_array().to_numpy()).transpose(0, 1).to(device).float()
-fine = torch.from_numpy(fine_fields.to_array().to_numpy()).transpose(0, 1).to(device).float()
-
-G = mlflow.pytorch.load_model(mod_bigres)
-invariant = xr.open_dataset("~/Masters/Data/PredictTest/DEM_Crop.nc", engine = "netcdf4")
-invariant = torch.from_numpy(invariant.to_array().to_numpy().squeeze(0)).to(device).float()
-
-ds = NetCDFSR(coarse, fine, invariant, device=device)
-dataloader = torch.utils.data.DataLoader(
-    dataset=ds, batch_size=16, shuffle=False
-)
-HR_RALSD = calc_ralsd(G, dataloader)
-test = next(iter(dataloader))
-HR_gen = G(test[0],test[2])
-plt.imshow(HR_gen[1,0,...].cpu().detach())
-
-G = mlflow.pytorch.load_model(mod_smallres)
-invariant = xr.open_dataset("~/Masters/Data/PredictTest/DEM_Coarse.nc", engine = "netcdf4")
-invariant = torch.from_numpy(invariant.to_array().to_numpy().squeeze(0)).to(device).float()
-
-ds = NetCDFSR(coarse, fine, invariant, device=device)
-dataloader = torch.utils.data.DataLoader(
-    dataset=ds, batch_size=16, shuffle=False
-)
-LR_RALSD = calc_ralsd(G, dataloader)
-test = next(iter(dataloader))
-LR_gen = G(test[0],test[2])
-
-plt.imshow(HR_gen[7,0,...].cpu().detach())
-plt.imshow(LR_gen[7,0,...].cpu().detach())
-torch.save(HR_gen.cpu().detach(),"HR_topo_GEN.pt")
-torch.save(LR_gen.cpu().detach(),"LR_topo_GEN.pt")
-
-
-
+for nm in modNm:
+    plt.plot(res[nm][:,0], label = nm)
+    plt.fill_between(range(64),res[nm][:,0]+res[nm][:,1],res[nm][:,0]-res[nm][:,1], alpha = 0.1)
 plt.legend()
 
+with open('ralsd_data.pkl','wb') as fp:
+    pickle.dump(res,fp)
+    print("Done!!!")
 
 
+#cond_fields = xr.open_dataset("~/Masters/Data/processed_data/ds_humid/coarse_validation.nc", engine="netcdf4")
+#fine_fields = xr.open_dataset("~/Masters/Data/processed_data/ds_humid/fine_validation.nc", engine="netcdf4")
+#coarse = torch.from_numpy(cond_fields.to_array().to_numpy()).transpose(0, 1).to(device).float()
+#fine = torch.from_numpy(fine_fields.to_array().to_numpy()).transpose(0, 1).to(device).float()
+#invariant = xr.open_dataset("~/Masters/Data/temperature/DEM_Use.nc", engine = "netcdf4")
+#invariant = torch.from_numpy(invariant.to_array().to_numpy().squeeze(0)).to(device).float()
 
-
-LR = np.array(LR_RALSD)
-np.savetxt("/home/kiridaust/Masters/DoWnGAN_Kiri/Results/LR_RALSD.csv",LR,delimiter = ',')
-
-HR = np.array(HR_RALSD)
-np.savetxt("/home/kiridaust/Masters/DoWnGAN_Kiri/Results/HR_RALSD.csv",HR,delimiter = ',')
-torch.save(zonal, "/home/kiridaust/Masters/DoWnGAN_Kiri/Results/LRTopo_WindGen.pt")
-
-
-# plt.boxplot((HRU,LRU),notch=True,labels=("HighRes","LowRes"))
-# plt.title("1% quantile of zonal wind speed")
-
-# plt.hist(u99,25)
-# plt.title("99th Qunatile of Jan Zonal Wind Speed (LRT)")
-
-# plt.hist(v99,25)
-# plt.title("99th Qunatile of Jan Meridional Wind Speed (LRT)")
-
-# print("Zonal = ",np.mean(u99))
-# print("Merid = ",np.mean(v99))
 
 
 

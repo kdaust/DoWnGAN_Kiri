@@ -19,5 +19,5 @@ def define_experiment(mlclient):
     return mlclient.get_experiment_by_name(set_exp).experiment_id
 
 def write_tags():
-    choice = "(16x16) wind, noise in noise_stylegan with content_lambda = 1 and PFS size 16!"
+    choice = "(16x16) wind, noise as covariate with content_lambda = 1 and PFS size 5, diff noise for each invariant"
     return choice
