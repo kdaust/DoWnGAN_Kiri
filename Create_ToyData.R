@@ -23,11 +23,26 @@ Chol = chol(cov_matrix)                                        # C
 sam_eq_mean = t(observations) %*% Chol          # Generating random MVN (0, cov_matrix)
 
 samples = t(sam_eq_mean) + means
-sv <- as.vector(t(samples))
+sv <- as.vector(t(sam_eq_mean))
 test_mat <- matrix(sv[1:128^2], nrow = 128, ncol = 128)
 image(test_mat)
 test_r <- rast(test_mat)
 plot(test_r)
+
+##generate images with divide
+x <- seq(0,32,by = 0.001)
+y <- dgamma(x, shape = 4,scale = 3)
+plot(x,y, type = "l")
+
+library(OpenImageR)
+dat <- rnorm(128^2)
+dmat <- matrix(dat, nrow = 128, ncol = 128)
+image(dmat)
+sloc <- as.integer(round(rgamma(1, shape = 4, scale = 3)))
+dmat[,(32+sloc):ncol(dmat)] <- dmat[,(32+sloc):ncol(dmat)]*10
+image(dmat)
+matds <- down_sample_image(dmat,factor = 32, gaussian_blur = F)
+image(matds)
 
 library(OpenImageR)
 sigmoid <- function(x){
