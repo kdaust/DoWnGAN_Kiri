@@ -1,6 +1,6 @@
 # Begin - load the data and initiate training
 # Defines the hyperparameter and constants configurationsimport gc
-from DoWnGAN.networks.generator_toydata import Generator
+from DoWnGAN.networks.dsc_generator_noise_stylegan import Generator
 from DoWnGAN.networks.critic import Critic
 from DoWnGAN.GAN.dataloader import NetCDFSR
 import DoWnGAN.mlflow_tools.mlflow_utils as mlf 
@@ -16,9 +16,9 @@ import torch
 
 from mlflow.tracking import MlflowClient
 
-highres_in = False
-#data_folder = "/home/kiridaust/Masters/Data/processed_data/ds_wind/"
-data_folder = "/home/kiridaust/Masters/Data/ToyDataSet/"
+highres_in = True
+data_folder = "/home/kdaust/Masters/Data/ds_wind/"
+#data_folder = "/home/kiridaust/Masters/Data/ToyDataSet/"
 
 def load_preprocessed():
     if(highres_in):

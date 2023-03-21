@@ -16,7 +16,7 @@ PROC_DATA = '~/Masters/Processed'
 
 # Where to store the mlflow tracking information. Make sure there is plenty of storage. 
 # This repo is NOT conservative with IO.
-EXPERIMENT_PATH = '/media/data/mlflow_exp'
+EXPERIMENT_PATH = '/home/kdaust/Masters/mlflow_exp/'
 EXPERIMENT_TAG="Kiri's Tests"
 
 # Whether to load preprocessed data
