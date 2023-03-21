@@ -32,8 +32,8 @@ invariant = torch.from_numpy(invariant.to_array().to_numpy()).to(device).float()
 
 batchsize = 100
 invariant = invariant.repeat(batchsize,1,1,1)
-# noise_f = torch.normal(0,1,size = [batchsize,1,128,128], device=device)
-# invariant = torch.cat([invariant, noise_f], 1)
+noise_f = torch.normal(0,1,size = [batchsize,1,128,128], device=device)
+invariant = torch.cat([invariant, noise_f], 1)
 print(invariant.size())
 #coarse_val = np.load(data_folder+"coarse_val_toydat.npy")
 #coarse_val = np.swapaxes(coarse_val, 0, 2)
