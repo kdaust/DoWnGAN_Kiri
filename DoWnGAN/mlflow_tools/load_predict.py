@@ -105,16 +105,13 @@ def calc_ralsd(G,dataloader):
     for i, data in enumerate(dataloader):
         if(i > 100):
             break
-        #coarse = data[0].to(device)
-        #print(data[0])
-        #inv = data[2].to(device)
         print("running batch ", i)
         #torch.cuda.empty_cache()
         out = G(data[0],data[2])
         #print(data[1][:,0,...].size())
         real = data[1][:,0,...].cpu().detach().numpy()
         zonal = out[:,0,...].cpu().detach().numpy()
-        merid = out[:,1,...].cpu().detach().numpy()
+        #merid = out[:,1,...].cpu().detach().numpy()
         #real = data[1].cpu().detach().numpy()
         #fake = out.cpu().detach().numpy()
         # zquant = np.quantile(zonal, qval, axis = (1,2))
@@ -131,8 +128,42 @@ def calc_ralsd(G,dataloader):
         del real
     return(RALSD)
 
-mod_noise = "/media/data/mlflow_exp/4/b56771fd635d414d9586dc72019237be/artifacts/Generator/Generator_420"
-G = mlflow.pytorch.load_model(mod_noise)
+
+models = ['d4c12d8ef6b84871bc0cb5fd18d638ef','4b906c3c6fe54f09832fcb9f22011f98','d3211ab32ecc4b41a5181c6ebdb3f83f','65e9cd4ba68045bdb79526d0196b654e']
+modNm = ['Cov_LR','Cov_Both','Inject_LowCL','Inject_PFS']
+
+data_folder = "/home/kiridaust/Masters/Data/processed_data/ds_wind/"
+cond_fields = xr.open_dataset(data_folder + "coarse_validation.nc", engine="netcdf4")
+fine_fields = xr.open_dataset(data_folder + "fine_validation.nc", engine="netcdf4")
+coarse = torch.from_numpy(cond_fields.to_array().to_numpy()).transpose(0, 1).to(device).float()
+fine = torch.from_numpy(fine_fields.to_array().to_numpy()).transpose(0, 1).to(device).float()
+invariant = xr.open_dataset(data_folder + "DEM_Crop.nc", engine = "netcdf4")
+invariant = torch.from_numpy(invariant.to_array().to_numpy()).to(device).float()
+ds = NetCDFSR(coarse, fine, invariant, device=device)
+
+##create dataloader with noise and no noise
+dataloader = torch.utils.data.DataLoader(
+    dataset=ds, batch_size=16, shuffle=False
+)
+
+for i in range(len(models)):
+    mod_noise = "/media/data/mlflow_exp/4/" + models[i] +"/artifacts/Generator/Generator_500"
+    G = mlflow.pytorch.load_model(mod_noise)
+    
+    
+    LR_RALSD = calc_ralsd(G, dataloader)
+    LRral = np.mean(LR_RALSD,axis = 0)
+    LRsd = np.std(LR_RALSD,axis = 0)
+    HRral = np.mean(HR_RALSD,axis = 0)
+    HRsd = np.std(HR_RALSD,axis = 0)
+
+    plt.plot(HRral, label = "HighRes")
+    plt.plot(LRral, label = "LowRes")
+    plt.fill_between(range(64), HRral+HRsd,HRral-HRsd, alpha = .1)
+    plt.fill_between(range(64), LRral+LRsd,LRral-LRsd, alpha = .1)
+    plt.xlabel("Frequency Group")
+    plt.ylabel("Amplitude proportion")
+
 
 cond_fields = xr.open_dataset("~/Masters/Data/processed_data/ds_humid/coarse_validation.nc", engine="netcdf4")
 fine_fields = xr.open_dataset("~/Masters/Data/processed_data/ds_humid/fine_validation.nc", engine="netcdf4")
@@ -190,17 +221,7 @@ torch.save(HR_gen.cpu().detach(),"HR_topo_GEN.pt")
 torch.save(LR_gen.cpu().detach(),"LR_topo_GEN.pt")
 
 
-LRral = np.mean(LR_RALSD,axis = 0)
-LRsd = np.std(LR_RALSD,axis = 0)
-HRral = np.mean(HR_RALSD,axis = 0)
-HRsd = np.std(HR_RALSD,axis = 0)
 
-plt.plot(HRral, label = "HighRes")
-plt.plot(LRral, label = "LowRes")
-plt.fill_between(range(64), HRral+HRsd,HRral-HRsd, alpha = .1)
-plt.fill_between(range(64), LRral+LRsd,LRral-LRsd, alpha = .1)
-plt.xlabel("Frequency Group")
-plt.ylabel("Amplitude proportion")
 plt.legend()
 
 

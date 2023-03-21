@@ -43,7 +43,7 @@ print(invariant.size())
 #fine_in = torch.from_numpy(fine_val)[:,None,...]
 #plt.imshow(coarse[508,0,...].cpu())
 
-sample = 42
+sample = 2
 coarse_in = coarse[sample,...]
 print(coarse_in.size())
 coarse_in = coarse_in.unsqueeze(0).repeat(batchsize,1,1,1)
