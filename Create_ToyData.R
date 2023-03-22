@@ -33,8 +33,27 @@ plot(test_r)
 x <- seq(0,32,by = 0.001)
 y <- dgamma(x, shape = 4,scale = 3)
 plot(x,y, type = "l")
-
 library(OpenImageR)
+library(terra)
+
+for(i in 1:6000){
+  if((i %% 50) == 0) cat("done",i,"\n")
+  dat <- rnorm(128^2)
+  dmat <- matrix(dat, nrow = 128, ncol = 128)
+  sloc <- as.integer(round(rgamma(1, shape = 4, scale = 3)))
+  dmat[,(32+sloc):ncol(dmat)] <- (dmat[,(32+sloc):ncol(dmat)])^2
+  matds <- down_sample_image(dmat,factor = 32, gaussian_blur = F)
+  if(i == 1){
+    outrast <- rast(dmat)
+    outds <- rast(matds)
+  }else{
+    add(outrast) <- rast(dmat)
+    add(outds) <- rast(matds)
+  }
+}
+
+test <- colMeans(dmat)
+
 dat <- rnorm(128^2)
 dmat <- matrix(dat, nrow = 128, ncol = 128)
 image(dmat)
