@@ -16,7 +16,7 @@ import seaborn as sns
 device = torch.device("cuda:0")
 
 
-mod_noise = "/media/data/mlflow_exp/4/65e9cd4ba68045bdb79526d0196b654e/artifacts/Generator/Generator_500"
+mod_noise = "/media/data/mlflow_exp/4/ea8f4ac3c4184e3eaeba2b70f0a6a604/artifacts/Generator/Generator_500"
 G = mlflow.pytorch.load_model(mod_noise)
 
 data_folder = "/home/kiridaust/Masters/Data/processed_data/ds_wind/"
@@ -30,7 +30,7 @@ invariant = torch.from_numpy(invariant.to_array().to_numpy()).to(device).float()
 
 
 
-batchsize = 100
+batchsize = 50
 invariant = invariant.repeat(batchsize,1,1,1)
 noise_f = torch.normal(0,1,size = [batchsize,1,128,128], device=device)
 invariant = torch.cat([invariant, noise_f], 1)
@@ -47,8 +47,8 @@ sample = 2
 coarse_in = coarse[sample,...]
 print(coarse_in.size())
 coarse_in = coarse_in.unsqueeze(0).repeat(batchsize,1,1,1)
-#noise_c = torch.normal(0,1,size = [batchsize, 1, coarse.shape[2],coarse.shape[3]], device=device)
-#coarse_in = torch.cat([coarse_in, noise_c], 1)
+noise_c = torch.normal(0,1,size = [batchsize, 1, coarse.shape[2],coarse.shape[3]], device=device)
+coarse_in = torch.cat([coarse_in, noise_c], 1)
 print(coarse_in.size())
 
 
@@ -63,6 +63,9 @@ fine_gent3 = fine_gen.cpu().detach()
 del fine_gen
 #plt.imshow(fine_gent3[5,0,...])
 fine_gen = torch.cat([fine_gent1,fine_gent2,fine_gent3],0)
+
+gen_cov = fine_gen
+gen_inject = fine_gen
 
 plt.rcParams["figure.figsize"] = (7,6)
 plt.imshow(fine_gen[1,0,...])
@@ -92,12 +95,14 @@ plt.imshow(sdres[0,...])
 #plt.imshow(fine_gen[56,0,...])
 # plt.imshow(fine_gen[233,0,...])
 
-xp = 64
-yp = 64
-sample = fine_gen[:,0,xp,yp].flatten()
+xp = 5
+yp = 5
+samp1 = gen_inject[:,0,xp,yp].flatten()
+samp2 = gen_cov[:,0,xp,yp].flatten()
 sns.set_style('whitegrid')
-sns.kdeplot(sample,bw = 0.5)
-
+sns.kdeplot(samp1,label = "Inject")
+sns.kdeplot(samp2,label = "Covar")
+plt.legend()
 
 sample = fine_gen[42,0,...].flatten()
 sns.set_style('whitegrid')

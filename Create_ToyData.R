@@ -51,6 +51,19 @@ for(i in 1:6000){
     add(outds) <- rast(matds)
   }
 }
+finedat <- as.array(outrast)
+coarsedat <- as.array(outds)
+
+library(reticulate)
+np <- import("numpy")
+np$save("Data/ToyDataSet/VerticalSep/fine_train.npy",finedat[,,1:4000])
+np$save("Data/ToyDataSet/VerticalSep/coarse_train.npy",coarsedat[,,1:4000])
+
+np$save("Data/ToyDataSet/VerticalSep/fine_test.npy",finedat[,,4001:5000])
+np$save("Data/ToyDataSet/VerticalSep/coarse_test.npy",coarsedat[,,4001:5000])
+
+np$save("Data/ToyDataSet/VerticalSep/fine_val.npy",finedat[,,5001:6000])
+np$save("Data/ToyDataSet/VerticalSep/coarse_val.npy",coarsedat[,,5001:6000])
 
 test <- colMeans(dmat)
 

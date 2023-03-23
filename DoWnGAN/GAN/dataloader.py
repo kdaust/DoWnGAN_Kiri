@@ -25,7 +25,7 @@ class NetCDFSR(Dataset):
         return self.fine.size(0)
 
     def __getitem__(self, idx):
-        noise_inv = True
+        noise_inv = False
         if torch.is_tensor(idx):
             idx = idx.tolist()
 

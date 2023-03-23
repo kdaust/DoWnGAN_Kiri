@@ -14,10 +14,10 @@ def define_experiment(mlclient):
     print("Enter the experiment name you wish to add the preceding training run to.")
     print("Select number from list or press n for new experiment: ")
     #[print(exp.experiment_id,":", exp.name) for i, exp in enumerate(mlclient.list_experiments())]
-    set_exp = "Marvin"
+    set_exp = "Test_Experiment"
     #mlclient.create_experiment(set_exp)
     return mlclient.get_experiment_by_name(set_exp).experiment_id
 
 def write_tags():
-    choice = "(16x16) wind, noise as covariate with content_lambda = 1 and PFS size 5, diff noise for each invariant"
+    choice = "(16x16) toydataset vertical sep, noise injected, and PFS5"
     return choice
