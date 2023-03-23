@@ -16,25 +16,28 @@ import seaborn as sns
 device = torch.device("cuda:0")
 
 
-mod_noise = "/media/data/mlflow_exp/4/ea8f4ac3c4184e3eaeba2b70f0a6a604/artifacts/Generator/Generator_500"
+mod_noise = "/media/data/mlflow_exp/4/9625d9c4e7584218827d4ec1740eb7f0/artifacts/Generator/Generator_500"
 G = mlflow.pytorch.load_model(mod_noise)
 
-data_folder = "/home/kiridaust/Masters/Data/processed_data/ds_wind/"
+#data_folder = "/home/kiridaust/Masters/Data/processed_data/ds_wind/"
+data_folder = "/home/kiridaust/Masters/Data/ToyDataSet/VerticalSep/"
+coarse = np.load(data_folder+"coarse_validation.npy")
+coarse = np.swapaxes(coarse, 0, 2)
 
-cond_fields = xr.open_dataset(data_folder + "coarse_validation.nc", engine="netcdf4")
-fine_fields = xr.open_dataset(data_folder + "fine_validation.nc", engine="netcdf4")
-coarse = torch.from_numpy(cond_fields.to_array().to_numpy()).transpose(0, 1).to(device).float()
-fine = torch.from_numpy(fine_fields.to_array().to_numpy()).transpose(0, 1).to(device).float()
-invariant = xr.open_dataset(data_folder + "DEM_Crop.nc", engine = "netcdf4")
-invariant = torch.from_numpy(invariant.to_array().to_numpy()).to(device).float()
+# cond_fields = xr.open_dataset(data_folder + "coarse_validation.nc", engine="netcdf4")
+# fine_fields = xr.open_dataset(data_folder + "fine_validation.nc", engine="netcdf4")
+# coarse = torch.from_numpy(cond_fields.to_array().to_numpy()).transpose(0, 1).to(device).float()
+# fine = torch.from_numpy(fine_fields.to_array().to_numpy()).transpose(0, 1).to(device).float()
+# invariant = xr.open_dataset(data_folder + "DEM_Crop.nc", engine = "netcdf4")
+# invariant = torch.from_numpy(invariant.to_array().to_numpy()).to(device).float()
 
 
 
 batchsize = 50
-invariant = invariant.repeat(batchsize,1,1,1)
-noise_f = torch.normal(0,1,size = [batchsize,1,128,128], device=device)
-invariant = torch.cat([invariant, noise_f], 1)
-print(invariant.size())
+# invariant = invariant.repeat(batchsize,1,1,1)
+# noise_f = torch.normal(0,1,size = [batchsize,1,128,128], device=device)
+# invariant = torch.cat([invariant, noise_f], 1)
+# print(invariant.size())
 #coarse_val = np.load(data_folder+"coarse_val_toydat.npy")
 #coarse_val = np.swapaxes(coarse_val, 0, 2)
 #fine_val = np.load(data_folder+"fine_val_toydat.npy")
@@ -47,66 +50,67 @@ sample = 2
 coarse_in = coarse[sample,...]
 print(coarse_in.size())
 coarse_in = coarse_in.unsqueeze(0).repeat(batchsize,1,1,1)
-noise_c = torch.normal(0,1,size = [batchsize, 1, coarse.shape[2],coarse.shape[3]], device=device)
-coarse_in = torch.cat([coarse_in, noise_c], 1)
+# noise_c = torch.normal(0,1,size = [batchsize, 1, coarse.shape[2],coarse.shape[3]], device=device)
+# coarse_in = torch.cat([coarse_in, noise_c], 1)
 print(coarse_in.size())
 
 
-fine_gen = G(coarse_in, invariant)
+fine_gen = G(coarse_in)
 fine_gent1 = fine_gen.cpu().detach()
 del fine_gen
-fine_gen = G(coarse_in, invariant)
+fine_gen = G(coarse_in)
 fine_gent2 = fine_gen.cpu().detach()
 del fine_gen
-fine_gen = G(coarse_in, invariant)
+fine_gen = G(coarse_in)
 fine_gent3 = fine_gen.cpu().detach()
 del fine_gen
 #plt.imshow(fine_gent3[5,0,...])
 fine_gen = torch.cat([fine_gent1,fine_gent2,fine_gent3],0)
+torch.save(fine_gen,"VerticalSep_Gen.pt")
 
-gen_cov = fine_gen
-gen_inject = fine_gen
+# gen_cov = fine_gen
+# gen_inject = fine_gen
 
-plt.rcParams["figure.figsize"] = (7,6)
-plt.imshow(fine_gen[1,0,...])
+# plt.rcParams["figure.figsize"] = (7,6)
+# plt.imshow(fine_gen[1,0,...])
 
-plt.savefig('Example_PFS_NoiseInject.svg',bbox_inches = 'tight')
-#plt.imshow(fine_gen[2,0,...])
-#plt.imshow(fine_gen[3,0,...])
-#plt.imshow(fine_gen[42,0,...])
+# plt.savefig('Example_PFS_NoiseInject.svg',bbox_inches = 'tight')
+# #plt.imshow(fine_gen[2,0,...])
+# #plt.imshow(fine_gen[3,0,...])
+# #plt.imshow(fine_gen[42,0,...])
 
-real = fine[sample,0,...].cpu().detach()
-fake = fine_gen[:,0,...].cpu().detach()
-rankvals = []
-for i in range(128):
-    for j in range(128):
-        obs = real[i,j].numpy()
-        ensemble = fake[:,i,j].flatten().numpy()
-        allvals = np.append(ensemble,obs)
-        rankvals.append(sorted(allvals).index(obs))
+# real = fine[sample,0,...].cpu().detach()
+# fake = fine_gen[:,0,...].cpu().detach()
+# rankvals = []
+# for i in range(128):
+#     for j in range(128):
+#         obs = real[i,j].numpy()
+#         ensemble = fake[:,i,j].flatten().numpy()
+#         allvals = np.append(ensemble,obs)
+#         rankvals.append(sorted(allvals).index(obs))
         
-plt.hist(rankvals)
-plt.savefig('RankHist_PFS_NoiseInject.svg', bbox_inches = 'tight', dpi = 600)
-sdres = torch.std(fine_gen,dim = 0)
-plt.imshow(sdres[0,...])
+# plt.hist(rankvals)
+# plt.savefig('RankHist_PFS_NoiseInject.svg', bbox_inches = 'tight', dpi = 600)
+# sdres = torch.std(fine_gen,dim = 0)
+# plt.imshow(sdres[0,...])
 
-#torch.save(fine_gen,"Wind_Generated_d4c12d8ef6b84871bc0cb5fd18d638ef.pt")
-#plt.imshow(fine_gen[1,0,...])
-#plt.imshow(fine_gen[56,0,...])
-# plt.imshow(fine_gen[233,0,...])
+# #torch.save(fine_gen,"Wind_Generated_d4c12d8ef6b84871bc0cb5fd18d638ef.pt")
+# #plt.imshow(fine_gen[1,0,...])
+# #plt.imshow(fine_gen[56,0,...])
+# # plt.imshow(fine_gen[233,0,...])
 
-xp = 5
-yp = 5
-samp1 = gen_inject[:,0,xp,yp].flatten()
-samp2 = gen_cov[:,0,xp,yp].flatten()
-sns.set_style('whitegrid')
-sns.kdeplot(samp1,label = "Inject")
-sns.kdeplot(samp2,label = "Covar")
-plt.legend()
+# xp = 5
+# yp = 5
+# samp1 = gen_inject[:,0,xp,yp].flatten()
+# samp2 = gen_cov[:,0,xp,yp].flatten()
+# sns.set_style('whitegrid')
+# sns.kdeplot(samp1,label = "Inject")
+# sns.kdeplot(samp2,label = "Covar")
+# plt.legend()
 
-sample = fine_gen[42,0,...].flatten()
-sns.set_style('whitegrid')
-sns.kdeplot(sample,bw = 0.5)
+# sample = fine_gen[42,0,...].flatten()
+# sns.set_style('whitegrid')
+# sns.kdeplot(sample,bw = 0.5)
 #real = fine_in[:,:,xp,yp].flatten()
 #myplt = sns.kdeplot(real,bw = 0.5)
 #myplt.figure.savefig("ToyDat2_Figure.png")
