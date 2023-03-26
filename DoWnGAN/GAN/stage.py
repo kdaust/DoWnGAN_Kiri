@@ -1,6 +1,6 @@
 # Begin - load the data and initiate training
 # Defines the hyperparameter and constants configurationsimport gc
-from DoWnGAN.networks.dsc_generator_v2 import Generator
+from DoWnGAN.networks.generator_toydata import Generator
 from DoWnGAN.networks.critic import Critic
 from DoWnGAN.GAN.dataloader import NetCDFSR
 import DoWnGAN.mlflow_tools.mlflow_utils as mlf 
@@ -16,9 +16,9 @@ import torch
 
 from mlflow.tracking import MlflowClient
 
-highres_in = True
-data_folder = "/home/kiridaust/Masters/Data/processed_data/ds_wind/"
-#data_folder = "/home/kiridaust/Masters/Data/ToyDataSet/VerticalSep/"
+highres_in = False
+#data_folder = "/home/kiridaust/Masters/Data/processed_data/ds_wind/"
+data_folder = "/home/kiridaust/Masters/Data/ToyDataSet/"
 
 def load_preprocessed():
     if(highres_in):
@@ -64,8 +64,12 @@ if(highres_in):
     coarse_test = torch.cat([coarse_test, noise_test], 1)
 else:
     coarse_train = torch.from_numpy(coarse_train)[:,None,...].to(config.device).float()
-    fine_train = torch.from_numpy(fine_train)[:,None,...].to(config.device).float()
     coarse_test = torch.from_numpy(coarse_test)[:,None,...].to(config.device).float()
+    noise_train = torch.normal(0,1,size = [coarse_train.shape[0], 1, coarse_train.shape[2],coarse_train.shape[3]], device=config.device)
+    noise_test = torch.normal(0,1,size = [coarse_test.shape[0], 1, coarse_test.shape[2],coarse_test.shape[3]], device=config.device)
+    coarse_train = torch.cat([coarse_train, noise_train], 1)
+    coarse_test = torch.cat([coarse_test, noise_test], 1)
+    fine_train = torch.from_numpy(fine_train)[:,None,...].to(config.device).float()
     fine_test = torch.from_numpy(fine_test)[:,None,...].to(config.device).float()
 print("Yep this works...")
 
@@ -93,7 +97,6 @@ class StageData:
             self.generator = Generator(self.coarse_dim_n, self.fine_dim_n, self.n_covariates, self.n_invariant, self.n_predictands).to(config.device)
         else:
             self.n_predictands = 1
-            self.n_covariates = 1
             print("Network dimensions: ")
             print("Fine: ", self.fine_dim_n, "x", self.n_predictands)
             print("Coarse: ", self.coarse_dim_n, "x", self.n_covariates)

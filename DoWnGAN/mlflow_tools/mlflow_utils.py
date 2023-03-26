@@ -19,5 +19,5 @@ def define_experiment(mlclient):
     return mlclient.get_experiment_by_name(set_exp).experiment_id
 
 def write_tags():
-    choice = "(16x16) wind data, noise as covariate just to LR, PFS5"
+    choice = "(16x16) toydata with noise as covariate just in LR, PFS5"
     return choice
