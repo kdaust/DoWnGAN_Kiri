@@ -133,8 +133,8 @@ def calc_ralsd(G,dataloader):
 
 # models = ['d4c12d8ef6b84871bc0cb5fd18d638ef','4b906c3c6fe54f09832fcb9f22011f98','d3211ab32ecc4b41a5181c6ebdb3f83f','65e9cd4ba68045bdb79526d0196b654e']
 # modNm = ['Cov_LR','Cov_Both','Inject_LowCL','Inject_PFS']
-models = ['ea8f4ac3c4184e3eaeba2b70f0a6a604','65e9cd4ba68045bdb79526d0196b654e']
-modNm = ['Cov_PFS','Inject_PFS5']
+models = ['28374f6f7190495cbf92d698584a2da2','65e9cd4ba68045bdb79526d0196b654e']
+modNm = ['CovLR_PFS','Inject_PFS']
 
 data_folder = "/home/kiridaust/Masters/Data/processed_data/ds_wind/"
 cond_fields = xr.open_dataset(data_folder + "coarse_validation.nc", engine="netcdf4")
@@ -152,7 +152,7 @@ invariant_noise = torch.cat([invariant,noise_f],1)
 ds_nc = NetCDFSR(coarse_noise, fine, invariant, device=device)
 ds_nb = NetCDFSR(coarse_noise, fine, invariant_noise, device=device)
 ds = NetCDFSR(coarse, fine, invariant, device=device)
-datasets = [ds_nb,ds] ##datasets for each model
+datasets = [ds_nc,ds] ##datasets for each model
 
 res = dict()
 for i in range(len(models)):
@@ -173,6 +173,7 @@ for nm in modNm:
     plt.plot(res[nm][:,0], label = nm)
     plt.fill_between(range(64),res[nm][:,0]+res[nm][:,1],res[nm][:,0]-res[nm][:,1], alpha = 0.1)
 plt.legend()
+plt.savefig('RALSD_CovLR_Inject.png',dpi = 600)
 
 with open('ralsd_data.pkl','wb') as fp:
     pickle.dump(res,fp)

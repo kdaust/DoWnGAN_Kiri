@@ -1,6 +1,6 @@
 # Begin - load the data and initiate training
 # Defines the hyperparameter and constants configurationsimport gc
-from DoWnGAN.networks.generator_toydata import Generator
+from DoWnGAN.networks.dsc_generator_v2 import Generator
 from DoWnGAN.networks.critic import Critic
 from DoWnGAN.GAN.dataloader import NetCDFSR
 import DoWnGAN.mlflow_tools.mlflow_utils as mlf 
@@ -16,9 +16,9 @@ import torch
 
 from mlflow.tracking import MlflowClient
 
-highres_in = False
-#data_folder = "/home/kdaust/Masters/Data/ds_wind/"
-data_folder = "/home/kiridaust/Masters/Data/ToyDataSet/VerticalSep/"
+highres_in = True
+data_folder = "/home/kiridaust/Masters/Data/processed_data/ds_wind/"
+#data_folder = "/home/kiridaust/Masters/Data/ToyDataSet/VerticalSep/"
 
 def load_preprocessed():
     if(highres_in):
@@ -84,7 +84,7 @@ class StageData:
         self.n_covariates = coarse_train.shape[1]##adding invarient
         if(highres_in):
             # Get shapes for networks
-            self.n_invariant = invarient.shape[0]+1 ##plus 1 for noise
+            self.n_invariant = invarient.shape[0] ##plus 1 for noise
             print("Network dimensions: ")
             print("Fine: ", self.fine_dim_n, "x", self.n_predictands)
             print("Coarse: ", self.coarse_dim_n, "x", self.n_covariates)

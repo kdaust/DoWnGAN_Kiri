@@ -21,9 +21,9 @@ G = mlflow.pytorch.load_model(mod_noise)
 
 #data_folder = "/home/kiridaust/Masters/Data/processed_data/ds_wind/"
 data_folder = "/home/kiridaust/Masters/Data/ToyDataSet/VerticalSep/"
-coarse = np.load(data_folder+"coarse_validation.npy")
+coarse = np.load(data_folder+"coarse_val.npy")
 coarse = np.swapaxes(coarse, 0, 2)
-
+coarse = torch.from_numpy(coarse)[:,None,...].to(device).float()
 # cond_fields = xr.open_dataset(data_folder + "coarse_validation.nc", engine="netcdf4")
 # fine_fields = xr.open_dataset(data_folder + "fine_validation.nc", engine="netcdf4")
 # coarse = torch.from_numpy(cond_fields.to_array().to_numpy()).transpose(0, 1).to(device).float()
@@ -54,19 +54,22 @@ coarse_in = coarse_in.unsqueeze(0).repeat(batchsize,1,1,1)
 # coarse_in = torch.cat([coarse_in, noise_c], 1)
 print(coarse_in.size())
 
+gen_out = G(coarse_in).cpu().detach()
+for i in range(20):
+    fine_gen = G(coarse_in)
+    gen_out = torch.cat([gen_out,fine_gen.cpu().detach()],0)
+    del fine_gen
 
-fine_gen = G(coarse_in)
-fine_gent1 = fine_gen.cpu().detach()
-del fine_gen
-fine_gen = G(coarse_in)
-fine_gent2 = fine_gen.cpu().detach()
-del fine_gen
-fine_gen = G(coarse_in)
-fine_gent3 = fine_gen.cpu().detach()
-del fine_gen
-#plt.imshow(fine_gent3[5,0,...])
-fine_gen = torch.cat([fine_gent1,fine_gent2,fine_gent3],0)
-torch.save(fine_gen,"VerticalSep_Gen.pt")
+
+plt.imshow(gen_out[5,0,...])
+tdat = torch.mean(gen_out,3)
+plt.plot(tdat[13,0,...])
+test = tdat[1,0,...].numpy()
+from scipy import optimize
+
+d1 = np.r_[0, np.abs(test[1:] - test[:-1])]
+d2 = np.r_[np.abs(test[1:] - test[:-1]), 0]
+torch.save(gen_out,"VerticalSep_Gen.pt")
 
 # gen_cov = fine_gen
 # gen_inject = fine_gen
