@@ -11,8 +11,8 @@ import seaborn as sns
 device = torch.device("cuda:0")
 
 
-mod_noise = "/media/data/mlflow_exp/4/9625d9c4e7584218827d4ec1740eb7f0/artifacts/Generator/Generator_500"
-G = mlflow.pytorch.load_model(mod_noise)
+#mod_noise = "/media/data/mlflow_exp/4/9625d9c4e7584218827d4ec1740eb7f0/artifacts/Generator/Generator_500"
+#G = mlflow.pytorch.load_model(mod_noise)
 
 data_folder = "/home/kiridaust/Masters/Data/processed_data/ds_wind/"
 
@@ -27,7 +27,7 @@ invariant = invariant.repeat(batchsize,1,1,1)
 # invariant = torch.cat([invariant, noise_f], 1)
 # print(invariant.size())
 
-sample = 2
+sample = 42
 coarse_in = coarse[sample,...]
 print(coarse_in.size())
 coarse_in = coarse_in.unsqueeze(0).repeat(batchsize,1,1,1)
@@ -36,7 +36,7 @@ models = ['28374f6f7190495cbf92d698584a2da2','65e9cd4ba68045bdb79526d0196b654e']
 modNm = ['CovLR_PFS','Inject_PFS']
 #modDat = [coarse_noise, coarse_in]
 xp = 64
-yp = 64
+yp = 20
 
 res = dict()
 for i in range(len(modNm)):
@@ -49,7 +49,7 @@ for i in range(len(modNm)):
     else:
         curr_coarse = coarse_in
     gen_out = G(curr_coarse,invariant).cpu().detach()
-    for i in range(20):
+    for j in range(20):
         fine_gen = G(curr_coarse,invariant)
         gen_out = torch.cat([gen_out,fine_gen.cpu().detach()],0)
         del fine_gen
@@ -62,4 +62,4 @@ for nm in modNm:
     sns.kdeplot(res[nm], label = nm)
 
 plt.legend()
-plt.savefig("Marginal_Compare.png", dpi = 600)
+plt.savefig("Marginal_Compare2.png", dpi = 600)
