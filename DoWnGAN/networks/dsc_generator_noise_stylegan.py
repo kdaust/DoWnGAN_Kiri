@@ -50,13 +50,13 @@ class DenseResidualBlock(nn.Module):
         self.noise_strength = torch.nn.Parameter(torch.mul(torch.ones([]),10))
 
     def forward(self, x):
-        noise = torch.normal(0,2,size = [x.shape[0], 1, self.resolution, self.resolution], device=x.device)
+        noise = torch.normal(0,1,size = [x.shape[0], 1, self.resolution, self.resolution], device=x.device)
         #print("Noise Size",noise.size())
         inputs = torch.cat([x,noise],1)
         #print(inputs.size())
         for block in self.blocks:
             out = block(inputs)
-            noise = torch.normal(0,2,size = [x.shape[0], 1, self.resolution, self.resolution], device=x.device)
+            noise = torch.normal(0,1,size = [x.shape[0], 1, self.resolution, self.resolution], device=x.device)
             inputs = torch.cat([inputs, out, noise], 1)
             # inputs = torch.cat([inputs, out], 1)
             # inputs.add_(noise)
@@ -81,7 +81,7 @@ class ResidualInResidualDenseBlock(nn.Module):
     
 class Generator(nn.Module):
     # coarse_dim_n, fine_dim_n, n_covariates, n_predictands
-    def __init__(self, filters, fine_dims, channels_coarse, channels_invariant, n_predictands=2, num_res_blocks=16, num_res_blocks_fine = 2, num_upsample=3):
+    def __init__(self, filters, fine_dims, channels_coarse, channels_invariant, n_predictands=2, num_res_blocks=16, num_res_blocks_fine = 4, num_upsample=3):
         super(Generator, self).__init__()
         self.fine_res = fine_dims
         # First layer
@@ -89,8 +89,8 @@ class Generator(nn.Module):
         self.conv1f = nn.Conv2d(channels_invariant, filters, kernel_size=3, stride=1, padding=1)
         # Residual blocks
         self.res_blocks = nn.Sequential(*[ResidualInResidualDenseBlock(filters,resolution=filters) for _ in range(num_res_blocks)])
-        # self.res_blocksf = nn.Sequential(*[ResidualInResidualDenseBlock(filters,resolution=fine_dims) for _ in range(num_res_blocks_fine)])
-        self.res_blocksf = DenseResidualBlock(filters,resolution=fine_dims)
+        self.res_blocksf = nn.Sequential(*[ResidualInResidualDenseBlock(filters,resolution=fine_dims) for _ in range(num_res_blocks_fine)])
+        # self.res_blocksf = DenseResidualBlock(filters,resolution=fine_dims)
         # Second conv layer post residual blocks
         self.conv2 = nn.Conv2d(filters, filters, kernel_size=3, stride=1, padding=1)
         
@@ -108,10 +108,9 @@ class Generator(nn.Module):
         self.upsampling = nn.Sequential(*upsample_layers)
         # Final output block
         self.conv3 = nn.Sequential(
-            DenseResidualBlock(filters*2,resolution=fine_dims),
             #nn.Conv2d(fine_dims + filters, fine_dims + filters, kernel_size=1, stride=1, padding=1), ##pointwise convolution
             nn.Conv2d(filters*2, filters + 1, kernel_size=3, stride=1, padding=1),
-            nn.Conv2d(filters + 1, filters + 1, 3, 1, 1, bias=True),
+            ResidualInResidualDenseBlock(filters + 1,resolution=fine_dims),
             nn.LeakyReLU(),
             nn.Conv2d(filters + 1, n_predictands, kernel_size=3, stride=1, padding=1),
         )

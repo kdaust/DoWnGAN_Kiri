@@ -75,7 +75,7 @@ class Generator(nn.Module):
     # coarse_dim_n, fine_dim_n, n_covariates, n_predictands
     def __init__(self, filters, fine_dims, channels_coarse, n_predictands=1, num_res_blocks=16, num_upsample=3):
         super(Generator, self).__init__()
-
+        self.fine_dims = fine_dims
         # First layer
         self.conv1 = nn.Conv2d(channels_coarse, filters, kernel_size=3, stride=1, padding=1)
         # Residual blocks
@@ -97,15 +97,17 @@ class Generator(nn.Module):
         # Final output block
         self.conv3 = nn.Sequential(
             #nn.Conv2d(fine_dims + filters, fine_dims + filters, kernel_size=1, stride=1, padding=1), ##pointwise convolution
-            nn.Conv2d(filters, filters, kernel_size=3, stride=1, padding=1),
-            ResidualInResidualDenseBlock(filters,resolution=fine_dims), ##should test whether this helps
+            nn.Conv2d(filters + 1, filters + 1, kernel_size=3, stride=1, padding=1),
+            ResidualInResidualDenseBlock(filters + 1,resolution=fine_dims), ##should test whether this helps
             nn.LeakyReLU(),
-            nn.Conv2d(filters, n_predictands, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(filters + 1, n_predictands, kernel_size=3, stride=1, padding=1),
         )
         
     def forward(self, x_coarse):
         out = self.LR_pre(x_coarse)
         outc = self.upsampling(out)
+        noise = torch.normal(0,1,size = [x_coarse.shape[0], 1, self.fine_dims, self.fine_dims], device=x_coarse.device) ##add fine noise
+        outc = torch.cat([outc,noise],1)
         #print(outc.size())
         out = self.conv3(outc)
         return out

@@ -1,6 +1,6 @@
 # Begin - load the data and initiate training
 # Defines the hyperparameter and constants configurationsimport gc
-from DoWnGAN.networks.generator_toydata_nonoise import Generator
+from DoWnGAN.networks.dsc_generator_noise_stylegan import Generator
 from DoWnGAN.networks.critic import Critic
 from DoWnGAN.GAN.dataloader import NetCDFSR
 import DoWnGAN.mlflow_tools.mlflow_utils as mlf 
@@ -16,9 +16,9 @@ import torch
 
 from mlflow.tracking import MlflowClient
 
-highres_in = False
-#data_folder = "/home/kiridaust/Masters/Data/processed_data/ds_wind/"
-data_folder = "/home/kiridaust/Masters/Data/ToyDataSet/"
+highres_in = True
+data_folder = "/home/kiridaust/Masters/Data/processed_data/ds_wind/"
+#data_folder = "/home/kiridaust/Masters/Data/ToyDataSet/"
 
 def load_preprocessed():
     if(highres_in):
@@ -56,12 +56,12 @@ if(highres_in):
     invarient = torch.from_numpy(invarient.to_array().to_numpy().squeeze(0)).to(config.device).float()
     # Uncomment to add stochasticity
     # #torch.normal(0,2,size = [x.shape[0], 1, self.resolution, self.resolution], device=x.device)
-    noise_train = torch.normal(0,1,size = [coarse_train.shape[0], 1, coarse_train.shape[2],coarse_train.shape[3]], device=config.device)
-    noise_test = torch.normal(0,1,size = [coarse_test.shape[0], 1, coarse_test.shape[2],coarse_test.shape[3]], device=config.device)
+    # noise_train = torch.normal(0,1,size = [coarse_train.shape[0], 1, coarse_train.shape[2],coarse_train.shape[3]], device=config.device)
+    # noise_test = torch.normal(0,1,size = [coarse_test.shape[0], 1, coarse_test.shape[2],coarse_test.shape[3]], device=config.device)
     # noise_inv = torch.normal(0,1, size = [1,128,128],device=config.device)
     # invarient = torch.cat([invarient,noise_inv], 0)
-    coarse_train = torch.cat([coarse_train, noise_train], 1)
-    coarse_test = torch.cat([coarse_test, noise_test], 1)
+    # coarse_train = torch.cat([coarse_train, noise_train], 1)
+    # coarse_test = torch.cat([coarse_test, noise_test], 1)
 else:
     coarse_train = torch.from_numpy(coarse_train)[:,None,...].to(config.device).float()
     coarse_test = torch.from_numpy(coarse_test)[:,None,...].to(config.device).float()
