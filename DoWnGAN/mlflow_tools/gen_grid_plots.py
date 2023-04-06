@@ -15,7 +15,7 @@ def gen_grid_images(G, coarse, invariant, real, epoch, train_test):
         real (torch.Tensor): The real input.
     """
     torch.manual_seed(0)
-    random = torch.randint(0, hp.batch_size, (20, ))
+    random = torch.randint(0, hp.batch_size, (5, ))
     # if(invariant == -1):
     #     fake = G(coarse[random, ...].to(config.device))
     # else:
@@ -23,21 +23,21 @@ def gen_grid_images(G, coarse, invariant, real, epoch, train_test):
     
     coarse = torchvision.utils.make_grid(
         coarse[random, ...],
-        nrow=10
+        nrow=5
     )[0, ...]
 
     fake = torchvision.utils.make_grid(
         fake,
-        nrow=10
+        nrow=5
     )[0, ...]
 
     real = torchvision.utils.make_grid(
         real[random, ...],
-        nrow=10
+        nrow=5
     )[0, ...]
 
 
-    fig = plt.figure(figsize=(30, 10))
+    fig = plt.figure(figsize=(20, 15))
     fig.suptitle("Training Samples")
 
     # Plot the coarse and fake samples

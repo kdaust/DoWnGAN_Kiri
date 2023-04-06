@@ -17,7 +17,7 @@ import torch
 from mlflow.tracking import MlflowClient
 
 highres_in = True
-data_folder = "/home/kiridaust/Masters/Data/processed_data/ds_temp/"
+data_folder = "/home/kiridaust/Masters/Data/processed_data/ds_wind/"
 #data_folder = "/home/kiridaust/Masters/Data/ToyDataSet/"
 
 def load_preprocessed():

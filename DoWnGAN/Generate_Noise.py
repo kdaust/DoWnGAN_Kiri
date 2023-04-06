@@ -205,11 +205,17 @@ import numpy as np
 import torch
 import matplotlib.pyplot as plt
 os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
-gen = torch.load("Wind_NoiseInject_65e9.pt")
+gen = torch.load("Wind_NoiseInject_6884.pt")
 plt.imshow(gen[0,0,...])
 plt.imshow(gen[42,0,...])
 plt.imshow(gen[175,0,...])
 plt.imshow(gen[130,0,...])
+
+avg = torch.mean(gen,0)
+plt.imshow(avg[0,...])
+hf = gen[3,0,...] - avg[0,]
+plt.imshow(hf)
+test = torch.var(avg,(1,2))
 
 fig, ax = plt.subplots(1, 3)
 
