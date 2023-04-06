@@ -19,5 +19,5 @@ def define_experiment(mlclient):
     return mlclient.get_experiment_by_name(set_exp).experiment_id
 
 def write_tags():
-    choice = "(16x16) wind with PFS and noise inject, new generator config"
+    choice = "(16x16) temperature with PFS and noise inject, new generator config"
     return choice

@@ -16,15 +16,15 @@ import seaborn as sns
 device = torch.device("cuda:0")
 
 
-mod_noise = "/media/data/mlflow_exp/4/65e9cd4ba68045bdb79526d0196b654e/artifacts/Generator/Generator_500"
+mod_noise = "/media/data/mlflow_exp/4/df5344f13a4148a2b763f8a0abf1e598/artifacts/Generator/Generator_250"
 G = mlflow.pytorch.load_model(mod_noise)
-data_folder = "/home/kiridaust/Masters/Data/processed_data/ds_wind/"
+data_folder = "/home/kiridaust/Masters/Data/processed_data/ds_temp/"
 #data_folder = "/home/kiridaust/Masters/Data/ToyDataSet/VerticalSep/"
 # coarse = np.load(data_folder+"coarse_val.npy")
 # coarse = np.swapaxes(coarse, 0, 2)
 # coarse = torch.from_numpy(coarse)[:,None,...].to(device).float()
-cond_fields = xr.open_dataset(data_folder + "coarse_validation.nc", engine="netcdf4")
-fine_fields = xr.open_dataset(data_folder + "fine_validation.nc", engine="netcdf4")
+cond_fields = xr.open_dataset(data_folder + "coarse_test.nc", engine="netcdf4")
+fine_fields = xr.open_dataset(data_folder + "fine_test.nc", engine="netcdf4")
 coarse = torch.from_numpy(cond_fields.to_array().to_numpy()).transpose(0, 1).to(device).float()
 fine = torch.from_numpy(fine_fields.to_array().to_numpy()).transpose(0, 1).to(device).float()
 invariant = xr.open_dataset(data_folder + "DEM_Crop.nc", engine = "netcdf4")
@@ -32,7 +32,7 @@ invariant = torch.from_numpy(invariant.to_array().to_numpy()).to(device).float()
 
 
 
-batchsize = 16
+batchsize = 32
 invariant = invariant.repeat(batchsize,1,1,1)
 # noise_f = torch.normal(0,1,size = [batchsize,1,128,128], device=device)
 # invariant = torch.cat([invariant, noise_f], 1)
@@ -44,23 +44,56 @@ print(invariant.size())
 
 #fine_in = torch.from_numpy(fine_val)[:,None,...]
 #plt.imshow(coarse[508,0,...].cpu())
+random = torch.randint(0, 5000, (30, ))
 
-sample = 42
-coarse_in = coarse[sample,...]
+allrank = []
+for sample in random:
+    print("Processing",sample)
+    coarse_in = coarse[sample,...]
+    coarse_in = coarse_in.unsqueeze(0).repeat(batchsize,1,1,1)
+
+    gen_out = G(coarse_in,invariant).cpu().detach()
+    for i in range(5):
+        fine_gen = G(coarse_in,invariant)
+        gen_out = torch.cat([gen_out,fine_gen.cpu().detach()],0)
+        del fine_gen
+    
+    real = fine[sample,0,...].cpu().detach()
+    fake = gen_out[:,0,...].cpu().detach()
+    rankvals = []
+    for i in range(128):
+        for j in range(128):
+            obs = real[i,j].numpy()
+            ensemble = fake[:,i,j].flatten().numpy()
+            allvals = np.append(ensemble,obs)
+            rankvals.append(sorted(allvals).index(obs))
+            
+    allrank.append(rankvals)
+        
+l2 = [item for sub in allrank for item in sub]
+plt.hist(l2)
+
+#torch.save(gen_out,"Wind_NoiseInject_6884.pt")
+
+for i in range(5):
+    plt.imshow(gen_out[i,0,...])
+    plt.show()
+    
+
+gen_mean = torch.mean(gen_out,0)
+plt.imshow(gen_mean[1,...])
+plt.imshow(coarse_in[0,...].cpu())
+plt.imshow(fine[sample,0,...].cpu())
 print(coarse_in.size())
-coarse_in = coarse_in.unsqueeze(0).repeat(batchsize,1,1,1)
-# noise_c = torch.normal(0,1,size = [batchsize, 1, coarse.shape[2],coarse.shape[3]], device=device)
-# coarse_in = torch.cat([coarse_in, noise_c], 1)
-print(coarse_in.size())
 
-gen_out = G(coarse_in,invariant).cpu().detach()
-for i in range(10):
-    fine_gen = G(coarse_in,invariant)
-    gen_out = torch.cat([gen_out,fine_gen.cpu().detach()],0)
-    del fine_gen
-
-torch.save(gen_out,"Wind_NoiseInject_65e9.pt")
-
+torch.manual_seed(0)
+random = torch.randint(0, 32, (20, ))
+plt.imshow(coarse[9,0,...].cpu())
+fake = G(coarse[0:32,...],invariant)
+sampnum = 31
+plt.imshow(coarse[sampnum,0,...].cpu())
+plt.imshow(fake[sampnum,0,...].cpu().detach())
+plt.imshow(fine[sampnum,0,...].cpu().detach())
 # gen_cov = fine_gen
 # gen_inject = fine_gen
 
@@ -72,17 +105,11 @@ torch.save(gen_out,"Wind_NoiseInject_65e9.pt")
 # #plt.imshow(fine_gen[3,0,...])
 # #plt.imshow(fine_gen[42,0,...])
 
-# real = fine[sample,0,...].cpu().detach()
-# fake = fine_gen[:,0,...].cpu().detach()
-# rankvals = []
-# for i in range(128):
-#     for j in range(128):
-#         obs = real[i,j].numpy()
-#         ensemble = fake[:,i,j].flatten().numpy()
-#         allvals = np.append(ensemble,obs)
-#         rankvals.append(sorted(allvals).index(obs))
-        
-# plt.hist(rankvals)
+
+
+plt.imshow(real)
+plt.imshow(fake[56,...])
+
 # plt.savefig('RankHist_PFS_NoiseInject.svg', bbox_inches = 'tight', dpi = 600)
 # sdres = torch.std(fine_gen,dim = 0)
 # plt.imshow(sdres[0,...])

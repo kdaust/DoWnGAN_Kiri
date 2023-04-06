@@ -133,12 +133,12 @@ def calc_ralsd(G,dataloader):
 
 # models = ['d4c12d8ef6b84871bc0cb5fd18d638ef','4b906c3c6fe54f09832fcb9f22011f98','d3211ab32ecc4b41a5181c6ebdb3f83f','65e9cd4ba68045bdb79526d0196b654e']
 # modNm = ['Cov_LR','Cov_Both','Inject_LowCL','Inject_PFS']
-models = ['28374f6f7190495cbf92d698584a2da2','65e9cd4ba68045bdb79526d0196b654e']
+models = ['28374f6f7190495cbf92d698584a2da2','688414a58b144a07b86d733d1b4d5375']
 modNm = ['CovLR_PFS','Inject_PFS']
 
 data_folder = "/home/kiridaust/Masters/Data/processed_data/ds_wind/"
-cond_fields = xr.open_dataset(data_folder + "coarse_validation.nc", engine="netcdf4")
-fine_fields = xr.open_dataset(data_folder + "fine_validation.nc", engine="netcdf4")
+cond_fields = xr.open_dataset(data_folder + "coarse_test.nc", engine="netcdf4")
+fine_fields = xr.open_dataset(data_folder + "fine_test.nc", engine="netcdf4")
 coarse = torch.from_numpy(cond_fields.to_array().to_numpy()).transpose(0, 1).to(device).float()
 fine = torch.from_numpy(fine_fields.to_array().to_numpy()).transpose(0, 1).to(device).float()
 invariant = xr.open_dataset(data_folder + "DEM_Crop.nc", engine = "netcdf4")
@@ -160,7 +160,7 @@ for i in range(len(models)):
     mod_noise = "/media/data/mlflow_exp/4/" + models[i] +"/artifacts/Generator/Generator_500"
     G = mlflow.pytorch.load_model(mod_noise)
     dataloader = torch.utils.data.DataLoader(
-        dataset=datasets[i], batch_size=16, shuffle=False
+        dataset=datasets[i], batch_size=16, shuffle=True
     )
     
     RALSD = calc_ralsd(G, dataloader)
