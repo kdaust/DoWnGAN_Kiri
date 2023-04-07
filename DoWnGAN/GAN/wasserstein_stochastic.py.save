@@ -60,28 +60,25 @@ class WassersteinGAN:
             fine (torch.Tensor): The fine input.
         """
         self.G_optimizer.zero_grad()
-        #print("In Generator")
-        #fake_means = torch.empty([coarse.shape[0],fine.shape[1],fine.shape[2],fine.shape[3]],dtype = torch.float32, device = config.device)
-        #c_result = torch.empty([coarse.shape[0]], dtype = torch.float32, device = config.device)
-        fake_li = []
-        c_li = []
-        for img in range(coarse.shape[0]):
+        print("In Generator")
+        fake_means = torch.empty([coarse.shape[0],fine.shape[1],fine.shape[2],fine.shape[3]])
+        c_result = torch.empty([coarse.shape[0]])
+
+        for img in range(5):
             coarse_rep = coarse[img,...].unsqueeze(0).repeat(coarse.shape[0],1,1,1) ##same number as batchsize for now
-            fake_stoch = self.G(coarse_rep,invariant).cpu().detach()
-            fake_mean = torch.mean(fake_stoch,0).cuda() ##now just one image for each predictand
-            c_fake_stoch = self.C(fake_stoch.cuda()) ##critic of each and take mean
-            fake_li.append(fake_mean)
-            c_li.append(torch.mean(c_fake_stoch))
-            #print("fake_mean: ", len(fake_li), "Critic mean: ", len(c_li))
+            #print("Coarse: ", coarse_rep.size(), "Invar: ", invariant.size())
+            fake_stoch = self.G(coarse_rep,invariant)
+            fake_mean = torch.mean(fake_stoch,0) ##now just one image for each predictand
+            c_fake_stoch = self.C(fake_stoch) ##critic of each and take mean
+            fake_means[img,...] = fake_mean
+            c_result[img] = torch.mean(c_fake_stoch)
+            print("fake_mean: ", fake_means.size(), "Critic mean: ", c_result.size())
             del coarse_rep
             del fake_stoch
             del c_fake_stoch
             del fake_mean
-            #torch.cuda.empty_cache()
-
-        fake_means = torch.stack(fake_li)
-        c_result = torch.stack(c_li)
-        #print("Generator: ", fake_means.shape)
+        
+        print("Generator: ", fake_means.shape)
         cont_loss = content_loss(fake_means, fine, device=config.device) #content loss with stochastic mean
         
         # Add content loss and create objective function
