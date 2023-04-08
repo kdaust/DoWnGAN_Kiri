@@ -16,9 +16,9 @@ import seaborn as sns
 device = torch.device("cuda:0")
 
 
-mod_noise = "/media/data/mlflow_exp/4/df5344f13a4148a2b763f8a0abf1e598/artifacts/Generator/Generator_250"
+mod_noise = "/media/data/mlflow_exp/4/44216d42cbd8429e99310844d53633e7/artifacts/Generator/Generator_90"
 G = mlflow.pytorch.load_model(mod_noise)
-data_folder = "/home/kiridaust/Masters/Data/processed_data/ds_temp/"
+data_folder = "/home/kiridaust/Masters/Data/processed_data/ds_wind/"
 #data_folder = "/home/kiridaust/Masters/Data/ToyDataSet/VerticalSep/"
 # coarse = np.load(data_folder+"coarse_val.npy")
 # coarse = np.swapaxes(coarse, 0, 2)
@@ -70,30 +70,31 @@ for sample in random:
             
     allrank.append(rankvals)
         
-l2 = [item for sub in allrank for item in sub]
-plt.hist(l2)
+l2 = np.array([item for sub in allrank for item in sub])
+np.save("Rank_Hist_Data.npy", l2)
+# plt.hist(l2)
 
-#torch.save(gen_out,"Wind_NoiseInject_6884.pt")
+# #torch.save(gen_out,"Wind_NoiseInject_6884.pt")
 
-for i in range(5):
-    plt.imshow(gen_out[i,0,...])
-    plt.show()
+# for i in range(5):
+#     plt.imshow(gen_out[i,0,...])
+#     plt.show()
     
 
-gen_mean = torch.mean(gen_out,0)
-plt.imshow(gen_mean[1,...])
-plt.imshow(coarse_in[0,...].cpu())
-plt.imshow(fine[sample,0,...].cpu())
-print(coarse_in.size())
+# gen_mean = torch.mean(gen_out,0)
+# plt.imshow(gen_mean[1,...])
+# plt.imshow(coarse_in[0,...].cpu())
+# plt.imshow(fine[sample,0,...].cpu())
+# print(coarse_in.size())
 
-torch.manual_seed(0)
-random = torch.randint(0, 32, (20, ))
-plt.imshow(coarse[9,0,...].cpu())
-fake = G(coarse[0:32,...],invariant)
-sampnum = 31
-plt.imshow(coarse[sampnum,0,...].cpu())
-plt.imshow(fake[sampnum,0,...].cpu().detach())
-plt.imshow(fine[sampnum,0,...].cpu().detach())
+# torch.manual_seed(0)
+# random = torch.randint(0, 32, (20, ))
+# plt.imshow(coarse[9,0,...].cpu())
+# fake = G(coarse[0:32,...],invariant)
+# sampnum = 31
+# plt.imshow(coarse[sampnum,0,...].cpu())
+# plt.imshow(fake[sampnum,0,...].cpu().detach())
+# plt.imshow(fine[sampnum,0,...].cpu().detach())
 # gen_cov = fine_gen
 # gen_inject = fine_gen
 
@@ -105,10 +106,6 @@ plt.imshow(fine[sampnum,0,...].cpu().detach())
 # #plt.imshow(fine_gen[3,0,...])
 # #plt.imshow(fine_gen[42,0,...])
 
-
-
-plt.imshow(real)
-plt.imshow(fake[56,...])
 
 # plt.savefig('RankHist_PFS_NoiseInject.svg', bbox_inches = 'tight', dpi = 600)
 # sdres = torch.std(fine_gen,dim = 0)
@@ -200,29 +197,29 @@ print("Done")
 
 
 # ############
-import os
-import numpy as np
-import torch
-import matplotlib.pyplot as plt
-os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
-gen = torch.load("Wind_NoiseInject_6884.pt")
-plt.imshow(gen[0,0,...])
-plt.imshow(gen[42,0,...])
-plt.imshow(gen[175,0,...])
-plt.imshow(gen[130,0,...])
+# import os
+# import numpy as np
+# import torch
+# import matplotlib.pyplot as plt
+# os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
+# gen = torch.load("Wind_NoiseInject_6884.pt")
+# plt.imshow(gen[0,0,...])
+# plt.imshow(gen[42,0,...])
+# plt.imshow(gen[175,0,...])
+# plt.imshow(gen[130,0,...])
 
-avg = torch.mean(gen,0)
-plt.imshow(avg[0,...])
-hf = gen[3,0,...] - avg[0,]
-plt.imshow(hf)
-test = torch.var(avg,(1,2))
+# avg = torch.mean(gen,0)
+# plt.imshow(avg[0,...])
+# hf = gen[3,0,...] - avg[0,]
+# plt.imshow(hf)
+# test = torch.var(avg,(1,2))
 
-fig, ax = plt.subplots(1, 3)
+# fig, ax = plt.subplots(1, 3)
 
-for i,num in enumerate([0,42,175]):
-    ax[i].imshow(gen[num,0,...])
-    ax[i].axis('off')
-fig.show()
+# for i,num in enumerate([0,42,175]):
+#     ax[i].imshow(gen[num,0,...])
+#     ax[i].axis('off')
+# fig.show()
 # np.save("GAN_Noise_Res.npy",gen)
 
 # tfine = np.load("C:/Users/kirid/Desktop/Masters/ToyDataSet/fine_train.npy")
