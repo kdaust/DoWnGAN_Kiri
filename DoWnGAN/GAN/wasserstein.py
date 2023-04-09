@@ -1,7 +1,7 @@
 from DoWnGAN.GAN.stage import StageData
 import DoWnGAN.config.hyperparams as hp
 from DoWnGAN.config import config
-from DoWnGAN.GAN.losses import content_loss#, kinetic_energy_loss
+from DoWnGAN.GAN.losses import content_loss, variance_loss
 from DoWnGAN.mlflow_tools.gen_grid_plots import gen_grid_images
 from DoWnGAN.mlflow_tools.mlflow_epoch import post_epoch_metric_mean, gen_batch_and_log_metrics, initialize_metric_dicts, log_network_models
 
@@ -91,7 +91,8 @@ class WassersteinGAN:
             cont_loss = content_loss(fake, fine, device=config.device)
 
         # Add content loss and create objective function
-        g_loss = -torch.mean(c_fake) * hp.gamma + hp.content_lambda * cont_loss
+        v_loss = variance_loss(fine, fake, device=config.device)
+        g_loss = -torch.mean(c_fake) * hp.gamma + hp.content_lambda * cont_loss + hp.variance_lambda*v_loss
 
         g_loss.backward()
 

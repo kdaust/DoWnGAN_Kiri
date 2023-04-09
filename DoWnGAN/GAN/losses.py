@@ -54,6 +54,14 @@ def content_loss(hr: torch.Tensor, fake: torch.Tensor, device: torch.device) -> 
 
     return content_loss
 
+def variance_loss(real: torch.Tensor, fake: torch.Tensor, device: torch.device) -> float:
+    
+    real_var = torch.var(real, (2,3))
+    fake_var = torch.var(fake, (2,3))
+    var_loss = torch.abs(real_var - fake_var)
+    return(float(torch.mean(var_loss)))
+
+
 
 def content_MSELoss(hr: torch.Tensor, fake: torch.Tensor, device: torch.device) -> float:
     """Calculates the L1 loss (pixel wise error) between both

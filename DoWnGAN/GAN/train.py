@@ -2,7 +2,7 @@
 from DoWnGAN.GAN.stage import StageData
 import DoWnGAN.config.hyperparams as hp
 from DoWnGAN.config import config
-from DoWnGAN.GAN.wasserstein_stochastic import WassersteinGAN
+from DoWnGAN.GAN.wasserstein import WassersteinGAN
 from DoWnGAN.mlflow_tools.mlflow_utils import log_hyperparams
 
 import mlflow
