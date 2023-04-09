@@ -66,8 +66,8 @@ class WassersteinGAN:
         fake_li = []
         c_li = []
         for img in range(coarse.shape[0]):
-            coarse_rep = coarse[img,...].unsqueeze(0).repeat(5,1,1,1) ##same number as batchsize for now
-            fake_stoch = self.G(coarse_rep,invariant)
+            coarse_rep = coarse[img,...].unsqueeze(0).repeat(4,1,1,1) ##same number as batchsize for now
+            fake_stoch = self.G(coarse_rep,invariant[0:4,...])
             fake_mean = torch.mean(fake_stoch,0) ##now just one image for each predictand
             c_fake_stoch = self.C(fake_stoch) ##critic of each and take mean
             fake_li.append(fake_mean)

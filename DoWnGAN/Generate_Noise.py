@@ -16,7 +16,7 @@ import seaborn as sns
 device = torch.device("cuda:0")
 
 
-mod_noise = "/media/data/mlflow_exp/4/44216d42cbd8429e99310844d53633e7/artifacts/Generator/Generator_90"
+mod_noise = "/media/data/mlflow_exp/4/44216d42cbd8429e99310844d53633e7/artifacts/Generator/Generator_70"
 G = mlflow.pytorch.load_model(mod_noise)
 data_folder = "/home/kiridaust/Masters/Data/processed_data/ds_wind/"
 #data_folder = "/home/kiridaust/Masters/Data/ToyDataSet/VerticalSep/"
