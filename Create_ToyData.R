@@ -3,9 +3,116 @@ library(MASS)
 library(terra)
 library(abind)
 
-no_obs = 4000             # Number of observations per column
-means = 1:5               # Mean values of each column
-no_cols = 5               # Number of columns
+nsamp = 128
+
+sigma <- matrix(rep(0,128^2),nsamp)
+diag(sigma) <- 1
+#sigma[1:127,2:128] <- 0.8
+for(i in 1:(nsamp-1)){
+  sigma[i,i+1] <- 0.8
+  sigma[i+1,i] <- 0.8
+}
+for(i in 1:(nsamp-2)){
+  sigma[i,i+2] <- 0.7
+  sigma[i+2,i] <- 0.7
+}
+for(i in 1:(nsamp-3)){
+  sigma[i,i+3] <- 0.5
+  sigma[i+3,i] <- 0.5
+}
+for(i in 1:(nsamp-4)){
+  sigma[i,i+4] <- 0.3
+  sigma[i+4,i] <- 0.3
+}
+sds = rep(1.5,nsamp)                 # SD of each column
+sd = diag(sds)
+cov_matrix = sd %*% sigma %*% sd
+library(lqmm)
+sig2 <- make.positive.definite(sigma)
+distr1 <- mvrnorm(n = nsamp,mu = rep(1,128),Sigma = sig2)
+distr2 <- mvrnorm(n = nsamp,mu = rep(5,128),Sigma = sig2)
+binmask <- matrix(rbinom(128^2, size = 1, prob = 0.35),128)
+distr1[binmask == 1] <- distr2[binmask == 1]
+image(distr1)
+plot(density(distr1))
+#################################
+
+library(OpenImageR)
+sigmoid <- function(x){
+  return(5/(1+exp(-8*x)))
+}
+
+sample_axes <- c(-1,0,1)
+nsamp = 128
+##generate single test set
+# xaxis <- seq(curr_samp[1],curr_samp[2], length.out = 128)
+# yaxis <- seq(curr_samp[1],curr_samp[2], length.out = 128)
+for(numrast in 1:8000){
+  if(numrast %% 100 == 0) cat("iteration",numrast,"\n")
+  curr_samp <- sample(sample_axes,size = 2)
+  xaxis <- seq(curr_samp[1],curr_samp[2], length.out = 128)
+  curr_samp <- sample(sample_axes,size = 2)
+  yaxis <- seq(curr_samp[1],curr_samp[2], length.out = 128)
+  dat <- as.data.table(cbind(expand.grid(xaxis,yaxis),expand.grid(xax = 1:128,yax =1:128)))
+  dat[,Val := sigmoid(Var1)*exp(Var2)]
+  d2 <- dcast(dat, xax ~ yax, value.var = "Val")
+  d2[,xax := NULL]
+  meanmat <- as.matrix(d2)
+  
+  distr1 <- mvrnorm(n = nsamp,mu = rep(1,128),Sigma = sig2)
+  distr2 <- mvrnorm(n = nsamp,mu = rep(5,128),Sigma = sig2)
+  binmask <- matrix(rbinom(128^2, size = 1, prob = 0.35),128)
+  distr1[binmask == 1] <- distr2[binmask == 1]
+  mat2 <- distr1*meanmat
+  rfine <- rast(mat2)
+  matds <- down_sample_image(mat2,factor = 8, gaussian_blur = T)
+  rcoarse <- rast(matds)
+  if(numrast == 1){
+    outrast <- rfine
+    outcoarse <- rcoarse
+  }else{
+    add(outrast) <- rfine
+    add(outcoarse) <- rcoarse
+  }
+}
+
+plot(outrast[[43]])
+plot(outcoarse[[43]])
+
+farr <- as.array(outrast)
+carr <- as.array(outcoarse)
+
+library(reticulate)
+np <- import("numpy")
+np$save("Bimodal_Synth/fine_train.npy",farr[,,1:5000])
+np$save("Bimodal_Synth/coarse_train.npy",carr[,,1:5000])
+
+np$save("Bimodal_Synth/fine_test.npy",farr[,,5001:7000])
+np$save("Bimodal_Synth/coarse_test.npy",carr[,,5001:7000])
+
+np$save("Bimodal_Synth/fine_val.npy",farr[,,7001:8000])
+np$save("Bimodal_Synth/coarse_val.npy",carr[,,7001:8000])
+
+
+
+library(gstat)
+sigmoid <- function(x){
+  return(5/(1+exp(-8*x)))
+}
+xy <- expand.grid(1:128,1:128)
+names(xy) <- c('x',"y")
+xy$xvar <- sigmoid(xy$x)
+xy$yvar <- sigmoid(xy$y)
+
+g.dummy <- gstat(formula=z~1+x+y, locations=~x+y, dummy=T, beta=c(1,0.005,0.005), 
+                 model=vgm(psill=0.025, range=5, model='Gau'), nmax=20)
+yy <- predict(g.dummy, newdata=xy, nsim=4)
+gridded(yy) = ~x+y
+spplot(yy)
+############################################
+no_obs = 128             # Number of observations per column
+means = rep(1,128)               # Mean values of each column
+no_cols = 128               # Number of columns
 
 sds = rep(1.5,no_cols)                 # SD of each column
 sd = diag(sds)         # SD in a diagonal matrix for later operations
@@ -16,8 +123,7 @@ observations = matrix(rnorm(no_cols * no_obs), nrow = no_cols) # Rd draws N(0,1)
 #                       0.7, 1.0, 0.5,
 #                       0.01, 0.5, 1.0), byrow = T, nrow = 3)     # cor matrix [3 x 3]
 
-cor_matrix <- as.matrix(fread("DoWnGAN_Kiri/ToyDatCovarMat.csv",header = F))
-cov_matrix = sd %*% cor_matrix %*% sd                          # The covariance matrix
+cov_matrix = sd %*% sigma %*% sd                          # The covariance matrix
 
 Chol = chol(cov_matrix)                                        # C
 sam_eq_mean = t(observations) %*% Chol          # Generating random MVN (0, cov_matrix)
@@ -56,6 +162,8 @@ coarsedat <- as.array(outds)
 
 library(reticulate)
 np <- import("numpy")
+dat <- np$load("DoWnGAN_Kiri/Rank_Hist_Data.npy")
+
 np$save("Data/ToyDataSet/VerticalSep/fine_train.npy",finedat[,,1:4000])
 np$save("Data/ToyDataSet/VerticalSep/coarse_train.npy",coarsedat[,,1:4000])
 
@@ -76,16 +184,7 @@ image(dmat)
 matds <- down_sample_image(dmat,factor = 32, gaussian_blur = F)
 image(matds)
 
-library(OpenImageR)
-sigmoid <- function(x){
-  return(5/(1+exp(-8*x)))
-}
-sample_axes <- c(-1,0,1)
-##generate single test set
-curr_samp <- c(-1,1)
-xaxis <- seq(curr_samp[1],curr_samp[2], length.out = 128)
-curr_samp <- c(0,1)
-yaxis <- seq(curr_samp[1],curr_samp[2], length.out = 128)
+
 
 mat <- matrix(data = NA_real_, nrow = 128, ncol = 128)
 for(i in 1:length(xaxis)){
@@ -155,16 +254,7 @@ for(numrast in 1:8000){
 image(outrast[,,42])
 image(outcoarse[,,42])
 
-library(reticulate)
-np <- import("numpy")
-np$save("fine_train.npy",outrast[,,1:5000])
-np$save("coarse_train.npy",outcoarse[,,1:5000])
 
-np$save("fine_test.npy",outrast[,,5001:7000])
-np$save("coarse_test.npy",outcoarse[,,5001:7000])
-
-np$save("fine_val.npy",outrast[,,7001:8000])
-np$save("coarse_val.npy",outcoarse[,,7001:8000])
 
 
 image(outrast[,,8])
