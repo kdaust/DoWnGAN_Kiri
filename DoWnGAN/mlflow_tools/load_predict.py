@@ -133,8 +133,8 @@ def calc_ralsd(G,dataloader):
 
 # models = ['d4c12d8ef6b84871bc0cb5fd18d638ef','4b906c3c6fe54f09832fcb9f22011f98','d3211ab32ecc4b41a5181c6ebdb3f83f','65e9cd4ba68045bdb79526d0196b654e']
 # modNm = ['Cov_LR','Cov_Both','Inject_LowCL','Inject_PFS']
-models = ['28374f6f7190495cbf92d698584a2da2','688414a58b144a07b86d733d1b4d5375']
-modNm = ['CovLR_PFS','Inject_PFS']
+models = ['222b74d955d94c84bc49dbf0db866d37/artifacts/Generator/Generator_250','688414a58b144a07b86d733d1b4d5375/artifacts/Generator/Generator_250']
+modNm = ['Variance_Loss','RegularPFS']
 
 data_folder = "/home/kiridaust/Masters/Data/processed_data/ds_wind/"
 cond_fields = xr.open_dataset(data_folder + "coarse_test.nc", engine="netcdf4")
@@ -144,20 +144,20 @@ fine = torch.from_numpy(fine_fields.to_array().to_numpy()).transpose(0, 1).to(de
 invariant = xr.open_dataset(data_folder + "DEM_Crop.nc", engine = "netcdf4")
 invariant = torch.from_numpy(invariant.to_array().to_numpy()).to(device).float()
 invariant = invariant.repeat(coarse.shape[0],1,1,1)
-noise_f = torch.normal(0,1,size = [invariant.shape[0],1,128,128], device=device)
-noise_c = torch.normal(0,1,size = [coarse.shape[0], 1, coarse.shape[2],coarse.shape[3]], device=device)
-coarse_noise = torch.cat([coarse,noise_c],1)
-invariant_noise = torch.cat([invariant,noise_f],1)
+#noise_f = torch.normal(0,1,size = [invariant.shape[0],1,128,128], device=device)
+#noise_c = torch.normal(0,1,size = [coarse.shape[0], 1, coarse.shape[2],coarse.shape[3]], device=device)
+#coarse_noise = torch.cat([coarse,noise_c],1)
+#invariant_noise = torch.cat([invariant,noise_f],1)
 
-ds_nc = NetCDFSR(coarse_noise, fine, invariant, device=device)
-ds_nb = NetCDFSR(coarse_noise, fine, invariant_noise, device=device)
+#ds_nc = NetCDFSR(coarse_noise, fine, invariant, device=device)
+#ds_nb = NetCDFSR(coarse_noise, fine, invariant_noise, device=device)
 ds = NetCDFSR(coarse, fine, invariant, device=device)
-datasets = [ds_nc,ds] ##datasets for each model
+datasets = [ds,ds] ##datasets for each model
 
 res = dict()
 for i in range(len(models)):
     print("Analysing model",modNm[i])
-    mod_noise = "/media/data/mlflow_exp/4/" + models[i] +"/artifacts/Generator/Generator_500"
+    mod_noise = "/media/data/mlflow_exp/4/" + models[i]
     G = mlflow.pytorch.load_model(mod_noise)
     dataloader = torch.utils.data.DataLoader(
         dataset=datasets[i], batch_size=16, shuffle=True

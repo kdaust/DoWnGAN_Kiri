@@ -197,22 +197,31 @@ print("Done")
 
 
 # ############
-# import os
-# import numpy as np
-# import torch
-# import matplotlib.pyplot as plt
-# os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
-# gen = torch.load("Wind_NoiseInject_6884.pt")
-# plt.imshow(gen[0,0,...])
-# plt.imshow(gen[42,0,...])
-# plt.imshow(gen[175,0,...])
-# plt.imshow(gen[130,0,...])
+import os
+import numpy as np
+import torch
+import matplotlib.pyplot as plt
+os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
+gen = torch.load("Wind_NoiseInject_6884.pt")
+t1 = gen[0:10,...]
+t2 = gen[10:20,...]
+v1 = torch.var(t1,(2,3))
+v2 = torch.var(t2,(2,3))
+var_loss = torch.mean(torch.abs(v1 - v2))
 
-# avg = torch.mean(gen,0)
-# plt.imshow(avg[0,...])
-# hf = gen[3,0,...] - avg[0,]
-# plt.imshow(hf)
-# test = torch.var(avg,(1,2))
+plt.imshow(gen[0,0,...])
+plt.imshow(gen[42,0,...])
+plt.imshow(gen[175,0,...])
+plt.imshow(gen[130,0,...])
+
+avg = torch.mean(gen,0)
+plt.imshow(avg[0,...])
+hf = gen[3,0,...] - avg[0,]
+plt.imshow(hf)
+test = torch.var(avg,(1,2))
+
+rhist = np.load("Rank_Hist70.npy")
+plt.hist(rhist)
 
 # fig, ax = plt.subplots(1, 3)
 
