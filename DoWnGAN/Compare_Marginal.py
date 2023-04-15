@@ -8,22 +8,24 @@ import numpy as np
 import torch
 import matplotlib.pyplot as plt
 import seaborn as sns
+from scipy.stats import wasserstein_distance
+import pandas as pd
 device = torch.device("cuda:0")
 
 
 #mod_noise = "/media/data/mlflow_exp/4/9625d9c4e7584218827d4ec1740eb7f0/artifacts/Generator/Generator_500"
 #G = mlflow.pytorch.load_model(mod_noise)
 
-data_folder = "/home/kiridaust/Masters/Data/ToyDataSet/"
+data_folder = "/home/kiridaust/Masters/Data/ToyDataSet/Bimodal_Synth/"
 
 # cond_fields = xr.open_dataset(data_folder + "coarse_validation.nc", engine="netcdf4")
 # coarse = torch.from_numpy(cond_fields.to_array().to_numpy()).transpose(0, 1).to(device).float()
 # invariant = xr.open_dataset(data_folder + "DEM_Crop.nc", engine = "netcdf4")
 # invariant = torch.from_numpy(invariant.to_array().to_numpy()).to(device).float()
-coarse = np.load(data_folder+"coarse_val_toydat.npy")
+coarse = np.load(data_folder+"coarse_val.npy")
 coarse = np.swapaxes(coarse, 0, 2)
 coarse = torch.from_numpy(coarse)[:,None,...].to(device).float()
-fine = np.load(data_folder+"fine_val_toydat.npy")
+fine = np.load(data_folder+"fine_val.npy")
 fine = np.swapaxes(fine, 0, 2)
 fine = torch.from_numpy(fine)[:,None,...]
 
@@ -33,16 +35,51 @@ batchsize = 32
 # invariant = torch.cat([invariant, noise_f], 1)
 # print(invariant.size())
 
-sample = 0
-coarse_in = coarse[sample,...]
+coarse_in = torch.mean(coarse,0)
 print(coarse_in.size())
 coarse_in = coarse_in.unsqueeze(0).repeat(batchsize,1,1,1)
 
-models = ['844ed50e4d0e4fa68554c4b4cd15b224','ccfb1a914fcd43c58aae2ef2c27a54ef']
-modNm = ['CovBoth_PFS','Inject_PFS']
+models = ['9d394968ef804a58a46c60f690c92261', '94c6d5ecb2d84eb085d424cf0c7248e3']
+modNm = ['Bimodal_Covar', 'Bimodal_Inject']
 #modDat = [coarse_noise, coarse_in]
-xp = 54
-yp = 120
+##wasserstien distance
+res = dict()
+for i in range(len(modNm)):
+    currdat = []
+    print("Analysing model",modNm[i])
+    mod_noise = "/media/data/mlflow_exp/4/" + models[i] +"/artifacts/Generator/Generator_500"
+    G = mlflow.pytorch.load_model(mod_noise)
+    if(i == 0):
+        noise_c = torch.normal(0,1,size = [batchsize, 1, coarse_in.shape[2],coarse_in.shape[3]], device=device)
+        curr_coarse = torch.cat([coarse_in, noise_c], 1)
+    else:
+        curr_coarse = coarse_in
+    gen_out = G(curr_coarse).cpu().detach()
+    for j in range(16):
+        fine_gen = G(curr_coarse)
+        gen_out = torch.cat([gen_out,fine_gen.cpu().detach()],0)
+        del fine_gen
+    
+    for y in range(128):
+        for x in range(128):
+            d1 = gen_out[:,0,x,y].flatten()
+            d2 = fine[:,0,x,y].flatten()
+            currdat.append(wasserstein_distance(d1, d2))
+    
+    res[modNm[i]] = currdat
+    del gen_out
+    del G
+    del curr_coarse
+
+df = pd.DataFrame(res)
+df2 = pd.melt(df,value_vars=modNm)
+sns.violinplot(data = df2, x = 'variable', y = 'value',scale='count')
+plt.xlabel("Model")
+plt.ylabel("Wasserstein Distance")
+
+
+xp = 32
+yp = 32
 
 res = dict()
 for i in range(len(modNm)):
@@ -55,7 +92,7 @@ for i in range(len(modNm)):
     else:
         curr_coarse = coarse_in
     gen_out = G(curr_coarse).cpu().detach()
-    for j in range(40):
+    for j in range(16):
         fine_gen = G(curr_coarse)
         gen_out = torch.cat([gen_out,fine_gen.cpu().detach()],0)
         del fine_gen
@@ -72,5 +109,5 @@ sns.kdeplot(fine[:,0,xp,yp].flatten(),label = "Real")
 plt.legend()
 #plt.show()
 plt.xlabel("Value")
-plt.savefig("Marginal_Compare_Toydat_CovBoth.svg", dpi = 600)
+plt.savefig("Marginal_Compare_Toydat_Bimodal.svg", dpi = 600)
 print("done!")

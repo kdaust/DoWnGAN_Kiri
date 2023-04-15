@@ -91,8 +91,8 @@ class WassersteinGAN:
             cont_loss = content_loss(fake, fine, device=config.device)
 
         # Add content loss and create objective function
-        v_loss = variance_loss(fine, fake, device=config.device)
-        g_loss = -torch.mean(c_fake) * hp.gamma + hp.content_lambda * cont_loss + hp.variance_lambda*v_loss
+        #v_loss = variance_loss(fine, fake, device=config.device)
+        g_loss = -torch.mean(c_fake) * hp.gamma + hp.content_lambda * cont_loss
 
         g_loss.backward()
 

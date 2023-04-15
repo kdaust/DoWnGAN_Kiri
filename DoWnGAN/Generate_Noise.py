@@ -16,7 +16,7 @@ import seaborn as sns
 device = torch.device("cuda:0")
 
 
-mod_noise = "/media/data/mlflow_exp/4/44216d42cbd8429e99310844d53633e7/artifacts/Generator/Generator_70"
+mod_noise = "/media/data/mlflow_exp/4/65e9cd4ba68045bdb79526d0196b654e/artifacts/Generator/Generator_500"
 G = mlflow.pytorch.load_model(mod_noise)
 data_folder = "/home/kiridaust/Masters/Data/processed_data/ds_wind/"
 #data_folder = "/home/kiridaust/Masters/Data/ToyDataSet/VerticalSep/"
@@ -45,7 +45,7 @@ print(invariant.size())
 #fine_in = torch.from_numpy(fine_val)[:,None,...]
 #plt.imshow(coarse[508,0,...].cpu())
 random = torch.randint(0, 5000, (30, ))
-
+mp = torch.nn.MaxPool2d(8)
 allrank = []
 for sample in random:
     print("Processing",sample)
@@ -58,12 +58,13 @@ for sample in random:
         gen_out = torch.cat([gen_out,fine_gen.cpu().detach()],0)
         del fine_gen
     
-    real = fine[sample,0,...].cpu().detach()
-    fake = gen_out[:,0,...].cpu().detach()
+    real = fine[sample,0,...].cpu()
+    real = mp(real.unsqueeze(0))
+    fake = mp(gen_out[:,0,...])
     rankvals = []
-    for i in range(128):
-        for j in range(128):
-            obs = real[i,j].numpy()
+    for i in range(16):
+        for j in range(16):
+            obs = real[0,i,j].numpy()
             ensemble = fake[:,i,j].flatten().numpy()
             allvals = np.append(ensemble,obs)
             rankvals.append(sorted(allvals).index(obs))
@@ -71,7 +72,7 @@ for sample in random:
     allrank.append(rankvals)
         
 l2 = np.array([item for sub in allrank for item in sub])
-np.save("Rank_Hist_Data.npy", l2)
+np.save("Rank_Hist_Data_maxpool_Regular.npy", l2)
 # plt.hist(l2)
 
 # #torch.save(gen_out,"Wind_NoiseInject_6884.pt")
@@ -201,27 +202,20 @@ import os
 import numpy as np
 import torch
 import matplotlib.pyplot as plt
-os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
-gen = torch.load("Wind_NoiseInject_6884.pt")
-t1 = gen[0:10,...]
-t2 = gen[10:20,...]
-v1 = torch.var(t1,(2,3))
-v2 = torch.var(t2,(2,3))
-var_loss = torch.mean(torch.abs(v1 - v2))
+#os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
+#gen = torch.load("Wind_NoiseInject_6884.pt")
+#t1 = gen[0:10,...]
+#t2 = gen[10:20,...]
+#v1 = torch.var(t1,(2,3))
+#v2 = torch.var(t2,(2,3))
+#var_loss = torch.mean(torch.abs(v1 - v2))
 
-plt.imshow(gen[0,0,...])
-plt.imshow(gen[42,0,...])
-plt.imshow(gen[175,0,...])
-plt.imshow(gen[130,0,...])
+#plt.imshow(gen[0,0,...])
+#plt.imshow(gen[42,0,...])
+#plt.imshow(gen[175,0,...])
+#plt.imshow(gen[130,0,...])
 
-avg = torch.mean(gen,0)
-plt.imshow(avg[0,...])
-hf = gen[3,0,...] - avg[0,]
-plt.imshow(hf)
-test = torch.var(avg,(1,2))
-
-rhist = np.load("Rank_Hist70.npy")
-plt.hist(rhist)
+#avg = torch.mean(gen,0)
 
 # fig, ax = plt.subplots(1, 3)
 
