@@ -93,7 +93,15 @@ np$save("Bimodal_Synth/coarse_test.npy",carr[,,5001:7000])
 np$save("Bimodal_Synth/fine_val.npy",farr[,,7001:8000])
 np$save("Bimodal_Synth/coarse_val.npy",carr[,,7001:8000])
 
-
+png("Rank_Hists.png",width = 8, height = 4, units = "in", res = 600)
+par(mfrow = c(1,3))
+regular_max <- np$load("DoWnGAN_Kiri/Rank_Hist_Data_maxpool_Regular.npy")
+hist(regular_max, main = "PFS")
+sm_max <- np$load("DoWnGAN_Kiri/Rank_Hist_Data_maxpool.npy")
+hist(sm_max, main = "Stochastic Mean")
+vl_max <- np$load("DoWnGAN_Kiri/Rank_Hist_Data_minpool_varloss.npy")
+hist(vl_max, main = "PFS + VarLoss")
+dev.off()
 
 library(gstat)
 sigmoid <- function(x){
