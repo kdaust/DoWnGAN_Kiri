@@ -19,5 +19,5 @@ def define_experiment(mlclient):
     return mlclient.get_experiment_by_name(set_exp).experiment_id
 
 def write_tags():
-    choice = "(16x16) bimodal toydata noise injection and pfs = 9"
+    choice = "(16x16) bimodal toydata noise as LR covariate and pfs = 9"
     return choice
