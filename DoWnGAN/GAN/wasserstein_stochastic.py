@@ -64,28 +64,26 @@ class WassersteinGAN:
         #fake_means = torch.empty([coarse.shape[0],fine.shape[1],fine.shape[2],fine.shape[3]],dtype = torch.float32, device = config.device)
         #c_result = torch.empty([coarse.shape[0]], dtype = torch.float32, device = config.device)
         fake_li = []
-        c_li = []
         for img in range(coarse.shape[0]):
             coarse_rep = coarse[img,...].unsqueeze(0).repeat(coarse.shape[0],1,1,1) ##same number as batchsize for now
             fake_stoch = self.G(coarse_rep,invariant).detach()
-            fake_mean = torch.mean(fake_stoch,0).requires_grad_() ##now just one image for each predictand
-            c_fake_stoch = self.C(fake_stoch).requires_grad_() ##critic of each and take mean
+            fake_mean = torch.mean(fake_stoch,0) ##now just one image for each predictand
             fake_li.append(fake_mean)
-            c_li.append(torch.mean(c_fake_stoch))
             #print("fake_mean: ", len(fake_li), "Critic mean: ", len(c_li))
             del coarse_rep
             del fake_stoch
-            del c_fake_stoch
             del fake_mean
             #torch.cuda.empty_cache()
 
         fake_means = torch.stack(fake_li)
-        c_result = torch.stack(c_li)
+        
+        fake = self.G(coarse, invariant)
+        c_fake = self.C(fake)
         #print("Generator: ", fake_means.shape)
         cont_loss = content_loss(fake_means, fine, device=config.device) #content loss with stochastic mean
         
         # Add content loss and create objective function
-        g_loss = -torch.mean(c_result) * hp.gamma + hp.content_lambda * cont_loss
+        g_loss = -torch.mean(c_fake) * hp.gamma + hp.content_lambda * cont_loss
 
         g_loss.backward()
 
