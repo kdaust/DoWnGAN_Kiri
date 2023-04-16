@@ -16,10 +16,10 @@ def gen_grid_images(G, coarse, invariant, real, epoch, train_test):
     """
     torch.manual_seed(0)
     random = torch.randint(0, hp.batch_size, (5, ))
-    if(invariant == -1):
-        fake = G(coarse[random, ...].to(config.device))
-    else:
-        fake = G(coarse[random, ...].to(config.device), invariant[random,...].to(config.device))
+    # if(invariant == -1):
+    #     fake = G(coarse[random, ...].to(config.device))
+    # else:
+    fake = G(coarse[random, ...].to(config.device), invariant[random,...].to(config.device))
     
     coarse = torchvision.utils.make_grid(
         coarse[random, ...],
