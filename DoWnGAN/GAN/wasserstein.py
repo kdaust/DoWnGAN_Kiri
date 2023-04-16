@@ -9,8 +9,8 @@ import torch
 from torch.autograd import grad as torch_grad
 
 import mlflow
-highres_in = False
-freq_sep = True
+highres_in = True
+freq_sep = False
 torch.autograd.set_detect_anomaly(True)
 
 
@@ -86,9 +86,20 @@ class WassersteinGAN:
             fake_high = fake - fake_low
             c_fake = self.C(fake_high)
             cont_loss = content_loss(fake_low, real_low, device=config.device)
-        else:
-            c_fake = self.C(fake)
-            cont_loss = content_loss(fake, fine, device=config.device)
+        else: ##stochastic mean
+            c_fake = self.C(fake) ## wasserstein distance
+            fake_li = []
+            for img in range(coarse.shape[0]):
+                coarse_rep = coarse[img,...].unsqueeze(0).repeat(16,1,1,1) ##same number as batchsize for now
+                fake_stoch = self.G(coarse_rep,invariant).detach()
+                fake_mean = torch.mean(fake_stoch,0) ##now just one image for each predictand
+                fake_li.append(fake_mean)
+                del coarse_rep
+                del fake_stoch
+                del fake_mean
+                #torch.cuda.empty_cache()
+            fake_means = torch.stack(fake_li)
+            cont_loss = content_loss(fake_means, fine, device=config.device)
 
         # Add content loss and create objective function
         #v_loss = variance_loss(fine, fake, device=config.device)
@@ -142,6 +153,7 @@ class WassersteinGAN:
             epoch (int): The epoch number.
         """
         print(80*"=")
+        print("Wasserstein GAN")
         train_metrics = initialize_metric_dicts({})
         test_metrics = initialize_metric_dicts({})
 
