@@ -90,7 +90,7 @@ class WassersteinGAN:
             c_fake = self.C(fake) ## wasserstein distance
             fake_li = []
             for img in range(coarse.shape[0]):
-                coarse_rep = coarse[img,...].unsqueeze(0).repeat(16,1,1,1) ##same number as batchsize for now
+                coarse_rep = coarse[img,...].unsqueeze(0).repeat(hp.batch_size,1,1,1) ##same number as batchsize for now
                 fake_stoch = self.G(coarse_rep,invariant).detach()
                 fake_mean = torch.mean(fake_stoch,0) ##now just one image for each predictand
                 fake_li.append(fake_mean)
