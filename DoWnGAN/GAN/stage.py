@@ -93,7 +93,7 @@ class StageData:
             print("Fine: ", self.fine_dim_n, "x", self.n_predictands)
             print("Coarse: ", self.coarse_dim_n, "x", self.n_covariates)
             print("Invariant: ", invarient.shape[1], "x", self.n_invariant)
-            self.critic = Critic(self.coarse_dim_n, self.fine_dim_n, self.n_predictands).to(config.device)
+            self.critic = Critic(self.coarse_dim_n, self.fine_dim_n, int(self.n_predictands*4)).to(config.device)
             self.generator = Generator(self.coarse_dim_n, self.fine_dim_n, self.n_covariates, self.n_invariant, self.n_predictands).to(config.device)
         else:
             self.n_predictands = 1

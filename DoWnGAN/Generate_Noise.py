@@ -208,7 +208,16 @@ import numpy as np
 import torch
 import matplotlib.pyplot as plt
 #os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
-#gen = torch.load("Wind_NoiseInject_6884.pt")
+gen = torch.load("Wind_NoiseInject_6884.pt")
+b1 = gen[0:32,...]
+b2 = torch.reshape(b1,(8,8,128,128))
+plt.imshow(b1[1,0,...])
+plt.imshow(b2[0,2,...])
+
+plt.imshow(b1[1,1,...])
+
+plt.imshow(b2[7,7,...])
+plt.imshow(b1[31,1,...])
 #t1 = gen[0:10,...]
 #t2 = gen[10:20,...]
 #v1 = torch.var(t1,(2,3))

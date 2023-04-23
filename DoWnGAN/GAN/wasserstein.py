@@ -153,7 +153,7 @@ class WassersteinGAN:
             epoch (int): The epoch number.
         """
         print(80*"=")
-        print("Wasserstein GAN")
+        ##print("Wasserstein GAN")
         train_metrics = initialize_metric_dicts({})
         test_metrics = initialize_metric_dicts({})
 
