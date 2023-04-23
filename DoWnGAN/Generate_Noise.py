@@ -19,13 +19,13 @@ device = torch.device("cuda:0")
 mod_noise = "/media/data/mlflow_exp/4/94c6d5ecb2d84eb085d424cf0c7248e3/artifacts/Generator/Generator_500"
 G = mlflow.pytorch.load_model(mod_noise)
 #data_folder = "/home/kiridaust/Masters/Data/processed_data/ds_wind/"
-data_folder = "/home/kiridaust/Masters/Data/ToyDataSet/Bimodal_Synth"
+data_folder = "/home/kiridaust/Masters/Data/ToyDataSet/Bimodal_Synth/"
 coarse = np.load(data_folder+"coarse_test.npy")
 coarse = np.swapaxes(coarse, 0, 2)
 coarse = torch.from_numpy(coarse)[:,None,...].to(device).float()
 fine = np.load(data_folder+"fine_test.npy")
-fine = np.swapaxes(coarse, 0, 2)
-fine = torch.from_numpy(coarse)[:,None,...].to(device).float()
+fine = np.swapaxes(fine, 0, 2)
+fine = torch.from_numpy(fine)[:,None,...].to(device).float()
 
 # cond_fields = xr.open_dataset(data_folder + "coarse_test.nc", engine="netcdf4")
 # fine_fields = xr.open_dataset(data_folder + "fine_test.nc", engine="netcdf4")
@@ -48,7 +48,7 @@ batchsize = 32
 
 #fine_in = torch.from_numpy(fine_val)[:,None,...]
 #plt.imshow(coarse[508,0,...].cpu())
-random = torch.randint(0, 4000, (30, ))
+random = torch.randint(0, 1000, (30, ))
 # mp = torch.nn.MaxPool2d(8)
 allrank = []
 for sample in random:
@@ -69,7 +69,7 @@ for sample in random:
     rankvals = []
     for i in range(128):
         for j in range(128):
-            obs = real[0,i,j].numpy()
+            obs = real[i,j].numpy()
             ensemble = fake[:,i,j].flatten().numpy()
             allvals = np.append(ensemble,obs)
             rankvals.append(sorted(allvals).index(obs))
@@ -78,7 +78,7 @@ for sample in random:
         
 l2 = np.array([item for sub in allrank for item in sub])
 np.save("Rank_Hist_Data_Bimodal.npy", l2)
-# plt.hist(l2)
+plt.hist(l2)
 
 # #torch.save(gen_out,"Wind_NoiseInject_6884.pt")
 
