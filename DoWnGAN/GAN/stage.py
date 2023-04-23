@@ -1,6 +1,6 @@
 # Begin - load the data and initiate training
 # Defines the hyperparameter and constants configurationsimport gc
-from DoWnGAN.networks.dsc_generator_noise_stylegan import Generator
+from DoWnGAN.networks.generator_toydata import Generator
 from DoWnGAN.networks.critic import Critic
 from DoWnGAN.GAN.dataloader import NetCDFSR
 import DoWnGAN.mlflow_tools.mlflow_utils as mlf 
@@ -16,9 +16,9 @@ import torch
 
 from mlflow.tracking import MlflowClient
 
-highres_in = True
-data_folder = "/home/kiridaust/Masters/Data/processed_data/ds_wind/"
-#data_folder = "/home/kiridaust/Masters/Data/ToyDataSet/Bimodal_Synth/"
+highres_in = False
+#data_folder = "/home/kiridaust/Masters/Data/processed_data/ds_wind/"
+data_folder = "/home/kiridaust/Masters/Data/ToyDataSet/Bimodal_Synth/"
 
 def load_preprocessed():
     if(highres_in):
@@ -65,10 +65,10 @@ if(highres_in):
 else:
     coarse_train = torch.from_numpy(coarse_train)[:,None,...].to(config.device).float()
     coarse_test = torch.from_numpy(coarse_test)[:,None,...].to(config.device).float()
-    noise_train = torch.normal(0,1,size = [coarse_train.shape[0], 1, coarse_train.shape[2],coarse_train.shape[3]], device=config.device)
-    noise_test = torch.normal(0,1,size = [coarse_test.shape[0], 1, coarse_test.shape[2],coarse_test.shape[3]], device=config.device)
-    coarse_train = torch.cat([coarse_train, noise_train], 1)
-    coarse_test = torch.cat([coarse_test, noise_test], 1)
+    # noise_train = torch.normal(0,1,size = [coarse_train.shape[0], 1, coarse_train.shape[2],coarse_train.shape[3]], device=config.device)
+    # noise_test = torch.normal(0,1,size = [coarse_test.shape[0], 1, coarse_test.shape[2],coarse_test.shape[3]], device=config.device)
+    # coarse_train = torch.cat([coarse_train, noise_train], 1)
+    # coarse_test = torch.cat([coarse_test, noise_test], 1)
     fine_train = torch.from_numpy(fine_train)[:,None,...].to(config.device).float()
     fine_test = torch.from_numpy(fine_test)[:,None,...].to(config.device).float()
 print("Yep this works...")
