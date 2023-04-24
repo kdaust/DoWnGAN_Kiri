@@ -19,5 +19,5 @@ def define_experiment(mlclient):
     return mlclient.get_experiment_by_name(set_exp).experiment_id
 
 def write_tags():
-    choice = "(16x16) wind data with PFS and PacGAN"
+    choice = "(16x16) wind data with stochastic mean as content loss"
     return choice

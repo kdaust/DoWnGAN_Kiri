@@ -9,8 +9,8 @@ import torch
 from torch.autograd import grad as torch_grad
 
 import mlflow
-highres_in = False
-freq_sep = True
+highres_in = True
+freq_sep = False
 torch.autograd.set_detect_anomaly(True)
 
 
@@ -90,8 +90,8 @@ class WassersteinGAN:
             c_fake = self.C(fake) ## wasserstein distance
             fake_li = []
             for img in range(coarse.shape[0]):
-                coarse_rep = coarse[img,...].unsqueeze(0).repeat(hp.batch_size,1,1,1) ##same number as batchsize for now
-                fake_stoch = self.G(coarse_rep,invariant).detach()
+                coarse_rep = coarse[img,...].unsqueeze(0).repeat(5,1,1,1) ##same number as batchsize for now
+                fake_stoch = self.G(coarse_rep,invariant)
                 fake_mean = torch.mean(fake_stoch,0) ##now just one image for each predictand
                 fake_li.append(fake_mean)
                 del coarse_rep
