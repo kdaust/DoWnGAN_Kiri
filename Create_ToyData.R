@@ -81,6 +81,8 @@ carr <- as.array(outcoarse)
 
 library(reticulate)
 np <- import("numpy")
+dem <- np$load("dem_crop.npy")
+image(dem)
 np$save("Data/ToyDataSet/Bimodal_Synth/fine_val.npy",farr)
 np$save("Data/ToyDataSet/Bimodal_Synth/coarse_val.npy",carr)
 ##generate single test set
@@ -88,21 +90,21 @@ np$save("Data/ToyDataSet/Bimodal_Synth/coarse_val.npy",carr)
 # yaxis <- seq(curr_samp[1],curr_samp[2], length.out = 128)
 for(numrast in 1:8000){
   if(numrast %% 100 == 0) cat("iteration",numrast,"\n")
-  curr_samp <- sample(sample_axes,size = 2)
-  xaxis <- seq(curr_samp[1],curr_samp[2], length.out = 128)
-  curr_samp <- sample(sample_axes,size = 2)
-  yaxis <- seq(curr_samp[1],curr_samp[2], length.out = 128)
-  dat <- as.data.table(cbind(expand.grid(xaxis,yaxis),expand.grid(xax = 1:128,yax =1:128)))
-  dat[,Val := sigmoid(Var1)*exp(Var2)]
-  d2 <- dcast(dat, xax ~ yax, value.var = "Val")
-  d2[,xax := NULL]
-  meanmat <- as.matrix(d2)
+  # curr_samp <- sample(sample_axes,size = 2)
+  # xaxis <- seq(curr_samp[1],curr_samp[2], length.out = 128)
+  # curr_samp <- sample(sample_axes,size = 2)
+  # yaxis <- seq(curr_samp[1],curr_samp[2], length.out = 128)
+  # dat <- as.data.table(cbind(expand.grid(xaxis,yaxis),expand.grid(xax = 1:128,yax =1:128)))
+  # dat[,Val := sigmoid(Var1)*exp(Var2)]
+  # d2 <- dcast(dat, xax ~ yax, value.var = "Val")
+  # d2[,xax := NULL]
+  # meanmat <- as.matrix(d2)
   
   distr1 <- mvrnorm(n = nsamp,mu = rep(1,128),Sigma = sig2)
-  distr2 <- mvrnorm(n = nsamp,mu = rep(5,128),Sigma = sig2)
-  binmask <- matrix(rbinom(128^2, size = 1, prob = 0.35),128)
-  distr1[binmask == 1] <- distr2[binmask == 1]
-  mat2 <- distr1*meanmat
+  #distr2 <- mvrnorm(n = nsamp,mu = rep(5,128),Sigma = sig2)
+  #binmask <- matrix(rbinom(128^2, size = 1, prob = 0.35),128)
+  #distr1[binmask == 1] <- distr2[binmask == 1]
+  mat2 <- distr1*dem
   rfine <- rast(mat2)
   matds <- down_sample_image(mat2,factor = 8, gaussian_blur = T)
   rcoarse <- rast(matds)
@@ -115,7 +117,7 @@ for(numrast in 1:8000){
   }
 }
 
-plot(outrast[[43]])
+plot(outrast[[42]])
 plot(outcoarse[[43]])
 
 farr <- as.array(outrast)
@@ -123,14 +125,14 @@ carr <- as.array(outcoarse)
 
 library(reticulate)
 np <- import("numpy")
-np$save("Bimodal_Synth/fine_train.npy",farr[,,1:5000])
-np$save("Bimodal_Synth/coarse_train.npy",carr[,,1:5000])
+np$save("Synth_DEM/fine_train.npy",farr[,,1:5000])
+np$save("Synth_DEM/coarse_train.npy",carr[,,1:5000])
 
-np$save("Bimodal_Synth/fine_test.npy",farr[,,5001:7000])
-np$save("Bimodal_Synth/coarse_test.npy",carr[,,5001:7000])
+np$save("Synth_DEM/fine_test.npy",farr[,,5001:7000])
+np$save("Synth_DEM/coarse_test.npy",carr[,,5001:7000])
 
-np$save("Bimodal_Synth/fine_val.npy",farr[,,7001:8000])
-np$save("Bimodal_Synth/coarse_val.npy",carr[,,7001:8000])
+np$save("Synth_DEM/fine_val_reg.npy",farr[,,7001:8000])
+np$save("Synth_DEM/coarse_val_reg.npy",carr[,,7001:8000])
 
 png("Rank_Hists.png",width = 8, height = 4, units = "in", res = 600)
 par(mfrow = c(1,3))
