@@ -55,6 +55,9 @@ def gen_batch_and_log_metrics(G, C, coarse, real, invariant, d):
         fake = G(coarse).detach()
     else:
         fake = G(coarse,invariant).detach()
+    
+    # fake_pac = torch.reshape(fake, (int(fake.shape[0]/4),int(fake.shape[1]*4),fake.shape[2],fake.shape[2]))
+    # real_pac = torch.reshape(real, (int(fake.shape[0]/4),int(fake.shape[1]*4),fake.shape[2],fake.shape[2]))
     creal = torch.mean(C(real)).detach()
     cfake = torch.mean(C(fake)).detach()
 

@@ -19,11 +19,12 @@ class Critic(nn.Module):
         #     multiplier = i**2
         self.features = nn.Sequential(
             nn.Conv2d(
-                self.nc, int(self.coarse_dim*4), kernel_size=3, stride=1, padding=1
+                self.nc, self.coarse_dim, kernel_size=3, stride=1, padding=1
             ),  # input is (3) x 96 x 96
             nn.LeakyReLU(negative_slope=0.2, inplace=True),
             nn.Conv2d(
-                int(self.coarse_dim*4),
+                #int(self.coarse_dim*4),
+                self.coarse_dim,
                 self.coarse_dim,
                 kernel_size=3,
                 stride=2,

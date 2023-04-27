@@ -10,7 +10,7 @@ from torch.autograd import grad as torch_grad
 
 import mlflow
 highres_in = True
-freq_sep = False
+freq_sep = True
 torch.autograd.set_detect_anomaly(True)
 
 
@@ -44,8 +44,8 @@ class WassersteinGAN:
             fake_high = fake - fake_low
             real_high = fine - real_low
             
-            fake_pac = torch.reshape(fake_high, (int(hp.batch_size/4),int(fake_high.shape[1]*4),fake_high.shape[2],fake_high.shape[2]))
-            real_pac = torch.reshape(real_high, (int(hp.batch_size/4),int(fake_high.shape[1]*4),fake_high.shape[2],fake_high.shape[2]))
+            fake_pac = torch.reshape(fake_high, (int(fake_high.shape[0]/4),int(fake_high.shape[1]*4),fake_high.shape[2],fake_high.shape[2]))
+            real_pac = torch.reshape(real_high, (int(fake_high.shape[0]/4),int(fake_high.shape[1]*4),fake_high.shape[2],fake_high.shape[2]))
 
             c_real = self.C(real_pac)
             c_fake = self.C(fake_pac)
@@ -87,7 +87,7 @@ class WassersteinGAN:
             real_low = hp.low(hp.rf(fine))
             fake_high = fake - fake_low
             
-            fake_pac = torch.reshape(fake_high, (int(hp.batch_size/4),int(fake_high.shape[1]*4),fake_high.shape[2],fake_high.shape[2]))
+            fake_pac = torch.reshape(fake_high, (int(fake_high.shape[0]/4),int(fake_high.shape[1]*4),fake_high.shape[2],fake_high.shape[2]))
             c_fake = self.C(fake_pac) ##PacGAN
             cont_loss = content_loss(fake_low, real_low, device=config.device)
         else: ##stochastic mean
