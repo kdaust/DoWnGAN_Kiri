@@ -10,7 +10,7 @@ from torch.autograd import grad as torch_grad
 
 import mlflow
 highres_in = True
-freq_sep = False
+freq_sep = True
 torch.autograd.set_detect_anomaly(True)
 
 

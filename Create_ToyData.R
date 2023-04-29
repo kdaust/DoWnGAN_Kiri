@@ -24,7 +24,7 @@ for(i in 1:(nsamp-4)){
   sigma[i,i+4] <- 0.3
   sigma[i+4,i] <- 0.3
 }
-sds = rep(1.5,nsamp)                 # SD of each column
+sds = rep(0.5,nsamp)                 # SD of each column
 sd = diag(sds)
 cov_matrix = sd %*% sigma %*% sd
 library(lqmm)
@@ -82,12 +82,14 @@ carr <- as.array(outcoarse)
 library(reticulate)
 np <- import("numpy")
 dem <- np$load("dem_crop.npy")
+dem <- dem*2
 image(dem)
 np$save("Data/ToyDataSet/Bimodal_Synth/fine_val.npy",farr)
 np$save("Data/ToyDataSet/Bimodal_Synth/coarse_val.npy",carr)
 ##generate single test set
 # xaxis <- seq(curr_samp[1],curr_samp[2], length.out = 128)
 # yaxis <- seq(curr_samp[1],curr_samp[2], length.out = 128)
+library(terra)
 for(numrast in 1:8000){
   if(numrast %% 100 == 0) cat("iteration",numrast,"\n")
   # curr_samp <- sample(sample_axes,size = 2)
@@ -100,11 +102,12 @@ for(numrast in 1:8000){
   # d2[,xax := NULL]
   # meanmat <- as.matrix(d2)
   
-  distr1 <- mvrnorm(n = nsamp,mu = rep(1,128),Sigma = sig2)
+  distr1 <- mvrnorm(n = nsamp,mu = rep(0,128),Sigma = sig2)
   #distr2 <- mvrnorm(n = nsamp,mu = rep(5,128),Sigma = sig2)
   #binmask <- matrix(rbinom(128^2, size = 1, prob = 0.35),128)
   #distr1[binmask == 1] <- distr2[binmask == 1]
-  mat2 <- distr1*dem
+  mat2 <- distr1 + dem
+  mat2 <- mat2^2
   rfine <- rast(mat2)
   matds <- down_sample_image(mat2,factor = 8, gaussian_blur = T)
   rcoarse <- rast(matds)
@@ -118,6 +121,8 @@ for(numrast in 1:8000){
 }
 
 plot(outrast[[42]])
+plot(outrast[[43]])
+plot(outrast[[44]])
 plot(outcoarse[[43]])
 
 farr <- as.array(outrast)
@@ -125,14 +130,14 @@ carr <- as.array(outcoarse)
 
 library(reticulate)
 np <- import("numpy")
-np$save("Synth_DEM/fine_train.npy",farr[,,1:5000])
-np$save("Synth_DEM/coarse_train.npy",carr[,,1:5000])
+np$save("Data/Synth_DEM/fine_train.npy",farr[,,1:5000])
+np$save("Data/Synth_DEM/coarse_train.npy",carr[,,1:5000])
 
-np$save("Synth_DEM/fine_test.npy",farr[,,5001:7000])
-np$save("Synth_DEM/coarse_test.npy",carr[,,5001:7000])
+np$save("Data/Synth_DEM/fine_test.npy",farr[,,5001:7000])
+np$save("Data/Synth_DEM/coarse_test.npy",carr[,,5001:7000])
 
-np$save("Synth_DEM/fine_val_reg.npy",farr[,,7001:8000])
-np$save("Synth_DEM/coarse_val_reg.npy",carr[,,7001:8000])
+np$save("Data/Synth_DEM/fine_val_reg.npy",farr[,,7001:8000])
+np$save("Data/Synth_DEM/coarse_val_reg.npy",carr[,,7001:8000])
 
 png("Rank_Hists.png",width = 8, height = 4, units = "in", res = 600)
 par(mfrow = c(1,3))

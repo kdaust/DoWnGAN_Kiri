@@ -13,13 +13,55 @@ import numpy as np
 import torch
 import matplotlib.pyplot as plt
 import seaborn as sns
+import CRPS as crps
 device = torch.device("cuda:0")
 
+### test CRPS metrics
+G_toy = mlflow.pytorch.load_model("/media/data/mlflow_exp/4/94c6d5ecb2d84eb085d424cf0c7248e3/artifacts/Generator/Generator_500")
+G_real = mlflow.pytorch.load_model("/media/data/mlflow_exp/4/65e9cd4ba68045bdb79526d0196b654e/artifacts/Generator/Generator_500")
+data_real = "/home/kiridaust/Masters/Data/processed_data/ds_wind/"
+data_toy = "/home/kiridaust/Masters/Data/ToyDataSet/Bimodal_Synth/"
 
-mod_noise = "/media/data/mlflow_exp/4/94c6d5ecb2d84eb085d424cf0c7248e3/artifacts/Generator/Generator_500"
+##toy data
+coarse_s = np.load(data_toy+"coarse_test.npy")
+coarse_s = np.swapaxes(coarse_s, 0, 2)
+coarse_s = torch.from_numpy(coarse_s)[:,None,...].to(device).float()
+fine_s = np.load(data_toy+"fine_test.npy")
+fine_s = np.swapaxes(fine_s, 0, 2)
+fine_s = torch.from_numpy(fine_s)[:,None,...].to(device).float()
+
+batchsize = 16
+coarse_s_samp = coarse_s[42,...].unsqueeze(0).repeat(batchsize,1,1,1)
+Gen_S = G_toy(coarse_s_samp).cpu().detach()
+
+##real wind
+cond_fields = xr.open_dataset(data_real + "coarse_test.nc", engine="netcdf4")
+fine_fields = xr.open_dataset(data_real + "fine_test.nc", engine="netcdf4")
+coarse_r = torch.from_numpy(cond_fields.to_array().to_numpy()).transpose(0, 1).to(device).float()
+fine_r = torch.from_numpy(fine_fields.to_array().to_numpy()).transpose(0, 1).to(device).float()
+invariant = xr.open_dataset(data_real + "DEM_Crop.nc", engine = "netcdf4")
+invariant = torch.from_numpy(invariant.to_array().to_numpy()).to(device).float()
+
+coarse_r_samp = coarse_r[42,...].unsqueeze(0).repeat(batchsize,1,1,1)
+invariant = invariant.repeat(batchsize,1,1,1)
+Gen_R = G_real(coarse_r_samp,invariant).cpu().detach()
+
+GR = Gen_R[:,0,...]
+GS = Gen_S[:,0,...]
+RR = fine_r[42,0,...]
+RS = fine_s[42,0,...]
+
+crps.CRPS(GS[:,11,110].flatten(), RS[11,110].cpu()).compute()
+crps.CRPS(GR[:,11,110].flatten(), RR[11,110].cpu()).compute()
+
+
+#mod_noise = "/media/data/mlflow_exp/4/94c6d5ecb2d84eb085d424cf0c7248e3/artifacts/Generator/Generator_500"
+mod_noise = "/media/data/mlflow_exp/4/97dcb6fdf104430b8243f7bf9c46326c/artifacts/Generator/Generator_500"
 G = mlflow.pytorch.load_model(mod_noise)
-#data_folder = "/home/kiridaust/Masters/Data/processed_data/ds_wind/"
-data_folder = "/home/kiridaust/Masters/Data/ToyDataSet/Bimodal_Synth/"
+data_folder = "/home/kiridaust/Masters/Data/processed_data/ds_wind/"
+#data_folder = "/home/kiridaust/Masters/Data/ToyDataSet/Bimodal_Synth/"
+data_folder = "/home/kiridaust/Masters/Data/Synth_DEM/"
+
 coarse = np.load(data_folder+"coarse_test.npy")
 coarse = np.swapaxes(coarse, 0, 2)
 coarse = torch.from_numpy(coarse)[:,None,...].to(device).float()
@@ -27,27 +69,22 @@ fine = np.load(data_folder+"fine_test.npy")
 fine = np.swapaxes(fine, 0, 2)
 fine = torch.from_numpy(fine)[:,None,...].to(device).float()
 
-# cond_fields = xr.open_dataset(data_folder + "coarse_test.nc", engine="netcdf4")
-# fine_fields = xr.open_dataset(data_folder + "fine_test.nc", engine="netcdf4")
-# coarse = torch.from_numpy(cond_fields.to_array().to_numpy()).transpose(0, 1).to(device).float()
-# fine = torch.from_numpy(fine_fields.to_array().to_numpy()).transpose(0, 1).to(device).float()
-# invariant = xr.open_dataset(data_folder + "DEM_Crop.nc", engine = "netcdf4")
-# invariant = torch.from_numpy(invariant.to_array().to_numpy()).to(device).float()
+cond_fields = xr.open_dataset(data_folder + "coarse_test.nc", engine="netcdf4")
+fine_fields = xr.open_dataset(data_folder + "fine_test.nc", engine="netcdf4")
+coarse = torch.from_numpy(cond_fields.to_array().to_numpy()).transpose(0, 1).to(device).float()
+fine = torch.from_numpy(fine_fields.to_array().to_numpy()).transpose(0, 1).to(device).float()
+invariant = xr.open_dataset(data_folder + "DEM_Crop.nc", engine = "netcdf4")
+invariant = torch.from_numpy(invariant.to_array().to_numpy()).to(device).float()
 
 
 
 batchsize = 32
-# invariant = invariant.repeat(batchsize,1,1,1)
+invariant = invariant.repeat(batchsize,1,1,1)
 # noise_f = torch.normal(0,1,size = [batchsize,1,128,128], device=device)
 # invariant = torch.cat([invariant, noise_f], 1)
 # print(invariant.size())
-#coarse_val = np.load(data_folder+"coarse_val_toydat.npy")
-#coarse_val = np.swapaxes(coarse_val, 0, 2)
-#fine_val = np.load(data_folder+"fine_val_toydat.npy")
-#fine_val = np.swapaxes(fine_val, 0, 2)
 
-#fine_in = torch.from_numpy(fine_val)[:,None,...]
-#plt.imshow(coarse[508,0,...].cpu())
+
 random = torch.randint(0, 1000, (30, ))
 # mp = torch.nn.MaxPool2d(8)
 allrank = []
@@ -56,14 +93,14 @@ for sample in random:
     coarse_in = coarse[sample,...]
     coarse_in = coarse_in.unsqueeze(0).repeat(batchsize,1,1,1)
 
-    gen_out = G(coarse_in).cpu().detach()
+    gen_out = G(coarse_in, invariant).cpu().detach()
     for i in range(5):
-        fine_gen = G(coarse_in)
+        fine_gen = G(coarse_in, invariant)
         gen_out = torch.cat([gen_out,fine_gen.cpu().detach()],0)
         del fine_gen
     
-    real = fine[sample,0,...].cpu()
-    fake = gen_out[:,0,...]
+    real = fine[sample,1,...].cpu()
+    fake = gen_out[:,1,...]
     # real = mp(real.unsqueeze(0))
     # fake = mp(gen_out[:,0,...])
     rankvals = []
@@ -80,6 +117,43 @@ l2 = np.array([item for sub in allrank for item in sub])
 np.save("Rank_Hist_Data_Bimodal.npy", l2)
 plt.hist(l2)
 
+mod_1 = "/media/data/mlflow_exp/4/97dcb6fdf104430b8243f7bf9c46326c/artifacts/Generator/Generator_500"
+mod_2 = "/media/data/mlflow_exp/4/65e9cd4ba68045bdb79526d0196b654e/artifacts/Generator/Generator_500"
+G1 = mlflow.pytorch.load_model(mod_1)
+G2 = mlflow.pytorch.load_model(mod_2)
+
+realf = fine[0:32,0,...].flatten()
+gen_out = G1(coarse[0:32,...], invariant).cpu().detach()
+for i in range(1,32):
+    fine_gen = G1(coarse[(i*32):((i+1)*32),...], invariant)
+    gen_out = torch.cat([gen_out,fine_gen.cpu().detach()],0)
+    del fine_gen
+    
+np.save("PacGAN_GEN.npy",gen_out)
+fake_pac = gen_out
+
+del gen_out
+gen_out = G2(coarse[0:32,...], invariant).cpu().detach()
+for i in range(1,32):
+    fine_gen = G2(coarse[(i*32):((i+1)*32),...], invariant)
+    gen_out = torch.cat([gen_out,fine_gen.cpu().detach()],0)
+    del fine_gen
+    
+np.save("RegularGAN_GEN.npy",gen_out)
+np.save("WRF_Wind.npy",fine[0:1024,...].cpu())
+fake_reg = gen_out
+
+torch.var(fake_reg)
+torch.var(fake_pac)
+torch.var(fine[0:192,...])
+
+torch.var(fake_reg[:,1,...])
+torch.var(fake_pac[:,1,...])
+torch.var(fine[0:192,1,...])
+
+torch.var(fake_reg[:,0,...])
+torch.var(fake_pac[:,0,...])
+torch.var(fine[0:192,0,...])
 # #torch.save(gen_out,"Wind_NoiseInject_6884.pt")
 
 # for i in range(5):
