@@ -17,9 +17,9 @@ import torch
 from mlflow.tracking import MlflowClient
 
 highres_in = True
-toydata = True
-#data_folder = "/home/kiridaust/Masters/Data/processed_data/ds_wind/"
-data_folder = "/home/kiridaust/Masters/Data/Synth_DEM/"
+toydata = False
+data_folder = "/home/kiridaust/Masters/Data/processed_data/ds_wind/"
+#data_folder = "/home/kiridaust/Masters/Data/Synth_DEM/"
 
 def load_preprocessed():
     if(not toydata):
@@ -93,8 +93,8 @@ class StageData:
         
         if(highres_in):
             # Get shapes for networks
-            #self.n_invariant = invarient.shape[0] ##plus 1 for noise
-            self.n_invariant = 1
+            self.n_invariant = invarient.shape[0] ##plus 1 for noise
+            #self.n_invariant = 1
             print("Network dimensions: ")
             print("Fine: ", self.fine_dim_n, "x", self.n_predictands)
             print("Coarse: ", self.coarse_dim_n, "x", self.n_covariates)
