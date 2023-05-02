@@ -18,13 +18,13 @@ from mlflow.tracking import MlflowClient
 
 highres_in = True
 toydata = False
-data_folder = "/home/kiridaust/Masters/Data/processed_data/ds_wind/"
-#data_folder = "/home/kiridaust/Masters/Data/Synth_DEM/"
+#data_folder = "/home/kiridaust/Masters/Data/processed_data/ds_wind/"
+data_folder = "/home/kdaust/Masters/ds_temphumid/"
 
 def load_preprocessed():
     if(not toydata):
-        coarse_train = xr.open_dataset(data_folder + "coarse_train_sht.nc", engine="netcdf4")
-        fine_train = xr.open_dataset(data_folder + "fine_train_sht.nc", engine="netcdf4")
+        coarse_train = xr.open_dataset(data_folder + "coarse_train.nc", engine="netcdf4")
+        fine_train = xr.open_dataset(data_folder + "fine_train.nc", engine="netcdf4")
         coarse_test = xr.open_dataset(data_folder + "coarse_test.nc", engine="netcdf4")
         fine_test = xr.open_dataset(data_folder + "fine_test.nc", engine="netcdf4")
         invarient = xr.open_dataset(data_folder + "DEM_Crop.nc", engine="netcdf4")

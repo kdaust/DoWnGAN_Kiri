@@ -19,21 +19,21 @@ coarse_covars = {
     }
 
 coarse_out = {
-    "train": "/home/kiridaust/Masters/Data/processed_data/ds_temp/coarse_train.nc",
-    "test": "/home/kiridaust/Masters/Data/processed_data/ds_temp/coarse_test.nc",
-    "val": "/home/kiridaust/Masters/Data/processed_data/ds_temp/coarse_validation.nc"
+    "train": "/home/kiridaust/Masters/Data/processed_data/ds_temphumid/coarse_train.nc",
+    "test": "/home/kiridaust/Masters/Data/processed_data/ds_temphumid/coarse_test.nc",
+    "val": "/home/kiridaust/Masters/Data/processed_data/ds_temphumid/coarse_validation.nc"
     }
 
 fine_covars = {
     "temp": "/home/kiridaust/Masters/Data/temperature/wrf_temp.nc",
-    #"humid": "/home/kiridaust/Masters/Data/temperature/wrf_humid.nc"
+    "humid": "/home/kiridaust/Masters/Data/temperature/wrf_humid.nc"
     #"precip": "/home/kiridaust/Masters/Data/WRF/prec_raw.nc"
     }
 
 fine_out = {
-    "train": "/home/kiridaust/Masters/Data/processed_data/ds_temp/fine_train.nc",
-    "test": "/home/kiridaust/Masters/Data/processed_data/ds_temp/fine_test.nc",
-    "val": "/home/kiridaust/Masters/Data/processed_data/ds_temp/fine_validation.nc"
+    "train": "/home/kiridaust/Masters/Data/processed_data/ds_temphumid/fine_train.nc",
+    "test": "/home/kiridaust/Masters/Data/processed_data/ds_temphumid/fine_test.nc",
+    "val": "/home/kiridaust/Masters/Data/processed_data/ds_temphumid/fine_validation.nc"
     }
 
 train_region = [-126,-122,49,53]

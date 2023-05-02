@@ -53,10 +53,10 @@ RS = fine_s[42,0,...]
 
 crps.CRPS(GS[:,11,110].flatten(), RS[11,110].cpu()).compute()
 crps.CRPS(GR[:,11,110].flatten(), RR[11,110].cpu()).compute()
-
+#####################################################################################3
 
 #mod_noise = "/media/data/mlflow_exp/4/94c6d5ecb2d84eb085d424cf0c7248e3/artifacts/Generator/Generator_500"
-mod_noise = "/media/data/mlflow_exp/4/97dcb6fdf104430b8243f7bf9c46326c/artifacts/Generator/Generator_500"
+mod_noise = "/media/data/mlflow_exp/4/83cfdda360814f1ea7ffea39d8d38e1e/artifacts/Generator/Generator_500"
 G = mlflow.pytorch.load_model(mod_noise)
 data_folder = "/home/kiridaust/Masters/Data/processed_data/ds_wind/"
 #data_folder = "/home/kiridaust/Masters/Data/ToyDataSet/Bimodal_Synth/"
@@ -68,6 +68,8 @@ coarse = torch.from_numpy(coarse)[:,None,...].to(device).float()
 fine = np.load(data_folder+"fine_test.npy")
 fine = np.swapaxes(fine, 0, 2)
 fine = torch.from_numpy(fine)[:,None,...].to(device).float()
+invar = np.load(data_folder+"dem_crop.npy")
+invariant = torch.from_numpy(invar)[None,...].to(device).float()
 
 cond_fields = xr.open_dataset(data_folder + "coarse_test.nc", engine="netcdf4")
 fine_fields = xr.open_dataset(data_folder + "fine_test.nc", engine="netcdf4")
@@ -99,8 +101,8 @@ for sample in random:
         gen_out = torch.cat([gen_out,fine_gen.cpu().detach()],0)
         del fine_gen
     
-    real = fine[sample,1,...].cpu()
-    fake = gen_out[:,1,...]
+    real = fine[sample,0,...].cpu()
+    fake = gen_out[:,0,...]
     # real = mp(real.unsqueeze(0))
     # fake = mp(gen_out[:,0,...])
     rankvals = []
@@ -114,8 +116,9 @@ for sample in random:
     allrank.append(rankvals)
         
 l2 = np.array([item for sub in allrank for item in sub])
-np.save("Rank_Hist_Data_Bimodal.npy", l2)
+np.save("Rank_Hist_Data_Synth_DEM.npy", l2)
 plt.hist(l2)
+merid = l2
 
 mod_1 = "/media/data/mlflow_exp/4/97dcb6fdf104430b8243f7bf9c46326c/artifacts/Generator/Generator_500"
 mod_2 = "/media/data/mlflow_exp/4/65e9cd4ba68045bdb79526d0196b654e/artifacts/Generator/Generator_500"
