@@ -8,8 +8,8 @@ setup(
     keywords="AI deep learning generative super resolution downscaling",
     packages=find_packages(),
     version="0.1dev",
-    author="Nic Annau",
-    author_email="nannau@uvic.ca",
+    author="Nic Annau, Kiri Daust",
+    author_email="kiridaust@uvic.ca",
     zip_safe=True,
     scripts=[
         "DoWnGAN/GAN/train.py",
@@ -24,7 +24,7 @@ setup(
         "DoWnGAN/networks/generator.py",
         "DoWnGAN/mlflow_tools/gen_grid_plots.py",
     ],
-    install_requires=["numpy", "dask", "torch", "xarray", "sklearn"],
+    install_requires=["numpy", "dask", "torch", "xarray", "scikit-learn"],
     extras_require = {"dask": "distributed"},
     package_dir={"DoWnGAN": "DoWnGAN"},
     package_data={"DoWnGAN": ["data/*", "DoWnGAN/"]},
@@ -33,7 +33,7 @@ setup(
         License :: GNU General Public License v3 (GPLv3)
         Operating System :: OS Independent
         Hardware :: Requires CUDA GPU
-        Programming Language :: Python :: 3.8
+        Programming Language :: Python :: 3.10
         Topic :: Scientific/Engineering
         Topic :: Software Development :: Libraries :: Python Modules""".split(
                 "\n"
