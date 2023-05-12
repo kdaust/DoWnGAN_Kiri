@@ -49,7 +49,7 @@ def gen_grid_images(G, coarse, invariant, real, epoch, train_test):
     ax.imshow(coarse.cpu().detach(), origin="lower")
 
     # Generated fake
-    subfigs[1].suptitle("Generated TempHumid")
+    subfigs[1].suptitle("Generated Temperature")
     ax = subfigs[1].subplots(1, 1)
     ax.imshow(fake.cpu().detach(), origin="lower")
 

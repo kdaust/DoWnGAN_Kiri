@@ -133,17 +133,26 @@ def calc_ralsd(G,dataloader):
 
 # models = ['d4c12d8ef6b84871bc0cb5fd18d638ef','4b906c3c6fe54f09832fcb9f22011f98','d3211ab32ecc4b41a5181c6ebdb3f83f','65e9cd4ba68045bdb79526d0196b654e']
 # modNm = ['Cov_LR','Cov_Both','Inject_LowCL','Inject_PFS']
-models = ['7cf2b23e9bf44b4d92138d0e4c1e2486/artifacts/Generator/Generator_280','97dcb6fdf104430b8243f7bf9c46326c/artifacts/Generator/Generator_280']
-modNm = ['Regular','PacGAN']
+models = ['971937cd44424b438c113ead26c4384d/artifacts/Generator/Generator_80','9b1ddd858c8c49b285b1cb3dd1d01172/artifacts/Generator/Generator_80']
+modNm = ['TempPFS','TempStochVar']
 
-data_folder = "/home/kiridaust/Masters/Data/Synth_DEM/"
-cond_fields = xr.open_dataset(data_folder + "coarse_test.nc", engine="netcdf4")
-fine_fields = xr.open_dataset(data_folder + "fine_test.nc", engine="netcdf4")
+data_folder = "/home/kiridaust/Masters/Data/processed_data/ds_temp/"
+
+cond_fields = xr.open_dataset(data_folder + "coarse_validation.nc", engine="netcdf4")
+fine_fields = xr.open_dataset(data_folder + "fine_validation.nc", engine="netcdf4")
 coarse = torch.from_numpy(cond_fields.to_array().to_numpy()).transpose(0, 1).to(device).float()
 fine = torch.from_numpy(fine_fields.to_array().to_numpy()).transpose(0, 1).to(device).float()
 invariant = xr.open_dataset(data_folder + "DEM_Crop.nc", engine = "netcdf4")
-invariant = torch.from_numpy(invariant.to_array().to_numpy()).to(device).float()
+invariant = torch.from_numpy(invariant.to_array().to_numpy().squeeze(0)).to(device).float()
 invariant = invariant.repeat(coarse.shape[0],1,1,1)
+
+# cond_fields = xr.open_dataset(data_folder + "coarse_test.nc", engine="netcdf4")
+# fine_fields = xr.open_dataset(data_folder + "fine_test.nc", engine="netcdf4")
+# coarse = torch.from_numpy(cond_fields.to_array().to_numpy()).transpose(0, 1).to(device).float()
+# fine = torch.from_numpy(fine_fields.to_array().to_numpy()).transpose(0, 1).to(device).float()
+# invariant = xr.open_dataset(data_folder + "DEM_Crop.nc", engine = "netcdf4")
+# invariant = torch.from_numpy(invariant.to_array().to_numpy()).to(device).float()
+# invariant = invariant.repeat(coarse.shape[0],1,1,1)
 #noise_f = torch.normal(0,1,size = [invariant.shape[0],1,128,128], device=device)
 #noise_c = torch.normal(0,1,size = [coarse.shape[0], 1, coarse.shape[2],coarse.shape[3]], device=device)
 #coarse_noise = torch.cat([coarse,noise_c],1)
@@ -173,19 +182,14 @@ for nm in modNm:
     plt.plot(res[nm][:,0], label = nm)
     plt.fill_between(range(64),res[nm][:,0]+res[nm][:,1],res[nm][:,0]-res[nm][:,1], alpha = 0.1)
 plt.legend()
-plt.savefig('RALSD_PacGAN.png',dpi = 600)
+plt.savefig('RALSD_Temperature.png',dpi = 600)
 
 with open('ralsd_data.pkl','wb') as fp:
     pickle.dump(res,fp)
     print("Done!!!")
 
 
-#cond_fields = xr.open_dataset("~/Masters/Data/processed_data/ds_humid/coarse_validation.nc", engine="netcdf4")
-#fine_fields = xr.open_dataset("~/Masters/Data/processed_data/ds_humid/fine_validation.nc", engine="netcdf4")
-#coarse = torch.from_numpy(cond_fields.to_array().to_numpy()).transpose(0, 1).to(device).float()
-#fine = torch.from_numpy(fine_fields.to_array().to_numpy()).transpose(0, 1).to(device).float()
-#invariant = xr.open_dataset("~/Masters/Data/temperature/DEM_Use.nc", engine = "netcdf4")
-#invariant = torch.from_numpy(invariant.to_array().to_numpy().squeeze(0)).to(device).float()
+
 
 
 

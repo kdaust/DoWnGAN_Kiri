@@ -18,7 +18,7 @@ PROC_DATA = '~/Masters/Processed'
 # This repo is NOT conservative with IO.
 EXPERIMENT_PATH = '/home/kdaust/Masters/mlflow_exp/'
 #EXPERIMENT_PATH = '/media/data/mlflow_exp'
-EXPERIMENT_TAG="Kiri's Tests"
+#EXPERIMENT_TAG="Kiri's Tests"
 
 # Whether to load preprocessed data
 already_preprocessed = True
