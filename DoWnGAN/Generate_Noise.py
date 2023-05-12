@@ -53,14 +53,88 @@ RS = fine_s[42,0,...]
 
 crps.CRPS(GS[:,11,110].flatten(), RS[11,110].cpu()).compute()
 crps.CRPS(GR[:,11,110].flatten(), RR[11,110].cpu()).compute()
-#####################################################################################3
+#################################3
+##generate temperature fields
+G = mlflow.pytorch.load_model("/media/data/mlflow_exp/4/971937cd44424b438c113ead26c4384d/artifacts/Generator/Generator_500")
+data_folder = "/home/kiridaust/Masters/Data/processed_data/ds_temp/"
 
-#mod_noise = "/media/data/mlflow_exp/4/94c6d5ecb2d84eb085d424cf0c7248e3/artifacts/Generator/Generator_500"
-mod_noise = "/media/data/mlflow_exp/4/83cfdda360814f1ea7ffea39d8d38e1e/artifacts/Generator/Generator_500"
-G = mlflow.pytorch.load_model(mod_noise)
+cond_fields = xr.open_dataset(data_folder + "coarse_validation.nc", engine="netcdf4")
+fine_fields = xr.open_dataset(data_folder + "fine_validation.nc", engine="netcdf4")
+coarse = torch.from_numpy(cond_fields.to_array().to_numpy()).transpose(0, 1).to(device).float()
+fine = torch.from_numpy(fine_fields.to_array().to_numpy()).transpose(0, 1).to(device).float()
+invariant = xr.open_dataset(data_folder + "DEM_Crop.nc", engine = "netcdf4")
+invariant = torch.from_numpy(invariant.to_array().to_numpy()).to(device).float()
+batchsize = 32
+invariant = invariant.repeat(batchsize,1,1,1)
+
+allgen = []
+for i in range(32):
+    print(".", end = " ")
+    gen = G(coarse[(i*32):((i+1)*32),...],invariant).cpu().detach()
+    allgen.append(gen)
+    del gen
+    
+gen2 = torch.cat(allgen,0)
+torch.save(gen2, "JustTemp_Gens_First1024Validation.pt")
+
+#####################################################################################
+### Compare CRPS Metrix of wind with regular and variance loss
+G_var = mlflow.pytorch.load_model("/media/data/mlflow_exp/4/b89f2ea32c7d49e1bcc3595e37590fc9/artifacts/Generator/Generator_80")
+G_reg = mlflow.pytorch.load_model("/media/data/mlflow_exp/4/7cf2b23e9bf44b4d92138d0e4c1e2486/artifacts/Generator/Generator_80")
 data_folder = "/home/kiridaust/Masters/Data/processed_data/ds_wind/"
+
+cond_fields = xr.open_dataset(data_folder + "coarse_test.nc", engine="netcdf4")
+fine_fields = xr.open_dataset(data_folder + "fine_test.nc", engine="netcdf4")
+coarse = torch.from_numpy(cond_fields.to_array().to_numpy()).transpose(0, 1).to(device).float()
+fine = torch.from_numpy(fine_fields.to_array().to_numpy()).transpose(0, 1).to(device).float()
+invariant = xr.open_dataset(data_folder + "DEM_Crop.nc", engine = "netcdf4")
+invariant = torch.from_numpy(invariant.to_array().to_numpy()).to(device).float()
+
+batchsize = 32
+invariant = invariant.repeat(batchsize,1,1,1)
+
+random = torch.randint(0, 1000, (30, ))
+# mp = torch.nn.MaxPool2d(8)
+allrank = []
+for sample in random:
+    print("Processing",sample)
+    coarse_in = coarse[sample,...]
+    coarse_in = coarse_in.unsqueeze(0).repeat(batchsize,1,1,1)
+
+    gen_out = G_var(coarse_in, invariant).cpu().detach()
+    for i in range(5):
+        fine_gen = G_var(coarse_in, invariant)
+        gen_out = torch.cat([gen_out,fine_gen.cpu().detach()],0)
+        del fine_gen
+    
+    real = fine[sample,0,...].cpu()
+    fake = gen_out[:,0,...]
+    # real = mp(real.unsqueeze(0))
+    # fake = mp(gen_out[:,0,...])
+    rankvals = []
+    for i in range(128):
+        for j in range(128):
+            obs = real[i,j].numpy()
+            ensemble = fake[:,i,j].flatten().numpy()
+            rankvals.append(crps.CRPS(ensemble,obs).compute()[0])
+            
+    allrank.append(rankvals)
+
+var_crps = np.array([item for sub in allrank for item in sub])
+
+plt.boxplot(reg_crps)
+plt.boxplot(var_crps)
+dat = np.vstack([reg_crps, var_crps])
+np.save("CRPS_Comp.npy",dat)
+
+########################################
+#mod_noise = "/media/data/mlflow_exp/4/94c6d5ecb2d84eb085d424cf0c7248e3/artifacts/Generator/Generator_500"
+mod_noise = "/media/data/mlflow_exp/4/6f3f3b042510493cb385939d57864de3/artifacts/Generator/Generator_480" ##dem+10
+mod_noise = "/media/data/mlflow_exp/4/9b1ddd858c8c49b285b1cb3dd1d01172/artifacts/Generator/Generator_80"
+G = mlflow.pytorch.load_model(mod_noise)
+data_folder = "/home/kiridaust/Masters/Data/processed_data/ds_temp/"
 #data_folder = "/home/kiridaust/Masters/Data/ToyDataSet/Bimodal_Synth/"
-data_folder = "/home/kiridaust/Masters/Data/Synth_DEM/"
+data_folder = "/home/kiridaust/Masters/Data/Synth_DEM/Weight10/"
 
 coarse = np.load(data_folder+"coarse_test.npy")
 coarse = np.swapaxes(coarse, 0, 2)
@@ -78,16 +152,13 @@ fine = torch.from_numpy(fine_fields.to_array().to_numpy()).transpose(0, 1).to(de
 invariant = xr.open_dataset(data_folder + "DEM_Crop.nc", engine = "netcdf4")
 invariant = torch.from_numpy(invariant.to_array().to_numpy()).to(device).float()
 
-
-
 batchsize = 32
 invariant = invariant.repeat(batchsize,1,1,1)
 # noise_f = torch.normal(0,1,size = [batchsize,1,128,128], device=device)
 # invariant = torch.cat([invariant, noise_f], 1)
 # print(invariant.size())
 
-
-random = torch.randint(0, 1000, (30, ))
+random = torch.randint(0, 1000, (40, ))
 # mp = torch.nn.MaxPool2d(8)
 allrank = []
 for sample in random:
@@ -102,6 +173,9 @@ for sample in random:
         del fine_gen
     
     real = fine[sample,0,...].cpu()
+    #lowerq = torch.quantile(real, 0.1)
+    real[real < torch.quantile(real, 0.5)] = 999 ##just test for high values areas
+    #real[real < lowerq] = 999
     fake = gen_out[:,0,...]
     # real = mp(real.unsqueeze(0))
     # fake = mp(gen_out[:,0,...])
@@ -109,17 +183,71 @@ for sample in random:
     for i in range(128):
         for j in range(128):
             obs = real[i,j].numpy()
-            ensemble = fake[:,i,j].flatten().numpy()
-            allvals = np.append(ensemble,obs)
-            rankvals.append(sorted(allvals).index(obs))
-            
+            if(obs != 999):
+                ensemble = fake[:,i,j].flatten().numpy()
+                allvals = np.append(ensemble,obs)
+                rankvals.append(sorted(allvals).index(obs))
+
     allrank.append(rankvals)
         
 l2 = np.array([item for sub in allrank for item in sub])
-np.save("Rank_Hist_Data_Synth_DEM.npy", l2)
+#np.save("Rank_Hist_Data_Synth_DEM_w10.npy", l2)
 plt.hist(l2)
 merid = l2
 
+###plot marginal distributions
+coarse_in = coarse[42,...]
+coarse_in = coarse_in.unsqueeze(0).repeat(batchsize,1,1,1)
+
+gen_out = G(coarse_in, invariant).cpu().detach()
+for i in range(5):
+    fine_gen = G(coarse_in, invariant)
+    gen_out = torch.cat([gen_out,fine_gen.cpu().detach()],0)
+    del fine_gen
+
+xp = 70
+yp = 60
+samp1 = gen_out[:,0,xp,yp].flatten()
+samp2 = fine[0:192,0,xp,yp].cpu().flatten()
+sns.set_style('whitegrid')
+sns.kdeplot(samp1,label = "Gen")
+sns.kdeplot(samp2,label = "Real")
+plt.legend()
+
+torch.quantile(fine[0:250,...].cpu(), torch.tensor([0.01,0.1,0.5,0.9,0.99]))
+
+from scipy.stats import wasserstein_distance
+coarse_in = coarse[42,...]
+coarse_in = coarse_in.unsqueeze(0).repeat(batchsize,1,1,1)
+gen_out = G(coarse_in, invariant).cpu().detach()
+for i in range(16):
+    fine_gen = G(coarse_in, invariant)
+    gen_out = torch.cat([gen_out,fine_gen.cpu().detach()],0)
+    del fine_gen
+    
+wass_reg = np.zeros([128,128])
+for i in range(128):
+    for j in range(128):
+        real = fine[0:512,0,i,j].cpu().flatten().numpy()
+        gen = gen_out[:,0,i,j].flatten().numpy()
+        wass_reg[i,j] = wasserstein_distance(gen,real)
+        
+wass_reg[wass_reg > np.quantile(wass_reg,0.95)] = np.quantile(wass_reg,0.95)
+plt.imshow(wass_reg,cmap="viridis")
+        
+wass_out = np.zeros([128,128])
+for i in range(128):
+    for j in range(128):
+        real = fine[0:512,0,i,j].cpu().flatten().numpy()
+        gen = gen_out[:,0,i,j].flatten().numpy()
+        real_std = (real - np.mean(real))/np.var(real)
+        gen_std = (gen - np.mean(gen))/np.var(gen)
+        wass_out[i,j] = wasserstein_distance(gen_std,real_std)
+        
+wass_out[wass_out > np.quantile(wass_out,0.95)] = np.quantile(wass_out,0.95)
+plt.imshow(wass_out,cmap="viridis")
+        
+################Compare PacGAN#######################################
 mod_1 = "/media/data/mlflow_exp/4/97dcb6fdf104430b8243f7bf9c46326c/artifacts/Generator/Generator_500"
 mod_2 = "/media/data/mlflow_exp/4/65e9cd4ba68045bdb79526d0196b654e/artifacts/Generator/Generator_500"
 G1 = mlflow.pytorch.load_model(mod_1)
@@ -199,14 +327,7 @@ torch.var(fine[0:192,0,...])
 # #plt.imshow(fine_gen[56,0,...])
 # # plt.imshow(fine_gen[233,0,...])
 
-# xp = 5
-# yp = 5
-# samp1 = gen_inject[:,0,xp,yp].flatten()
-# samp2 = gen_cov[:,0,xp,yp].flatten()
-# sns.set_style('whitegrid')
-# sns.kdeplot(samp1,label = "Inject")
-# sns.kdeplot(samp2,label = "Covar")
-# plt.legend()
+
 
 # sample = fine_gen[42,0,...].flatten()
 # sns.set_style('whitegrid')
