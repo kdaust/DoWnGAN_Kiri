@@ -10,7 +10,7 @@ from torch.autograd import grad as torch_grad
 
 import mlflow
 highres_in = True
-freq_sep = False
+freq_sep = True
 torch.autograd.set_detect_anomaly(True)
 
 
@@ -112,7 +112,7 @@ class WassersteinGAN:
 
         # Add content loss and create objective function
         #v_loss = variance_loss(fine, fake, device=config.device)
-        g_loss = -torch.mean(c_fake) * hp.gamma + hp.content_lambda * cont_loss + 2 * var_loss
+        g_loss = -torch.mean(c_fake) * hp.gamma + hp.content_lambda * cont_loss#+ 2 * var_loss
 
         g_loss.backward()
 

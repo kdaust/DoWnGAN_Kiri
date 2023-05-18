@@ -130,7 +130,7 @@ np.save("CRPS_Comp.npy",dat)
 ########################################
 #mod_noise = "/media/data/mlflow_exp/4/94c6d5ecb2d84eb085d424cf0c7248e3/artifacts/Generator/Generator_500"
 mod_noise = "/media/data/mlflow_exp/4/6f3f3b042510493cb385939d57864de3/artifacts/Generator/Generator_480" ##dem+10
-mod_noise = "/media/data/mlflow_exp/4/9b1ddd858c8c49b285b1cb3dd1d01172/artifacts/Generator/Generator_80"
+mod_noise = "/media/data/mlflow_exp/4/b190fb9c6b63458e9152c6b7706cb1f8/artifacts/Generator/Generator_460"
 G = mlflow.pytorch.load_model(mod_noise)
 data_folder = "/home/kiridaust/Masters/Data/processed_data/ds_temp/"
 #data_folder = "/home/kiridaust/Masters/Data/ToyDataSet/Bimodal_Synth/"
@@ -174,7 +174,7 @@ for sample in random:
     
     real = fine[sample,0,...].cpu()
     #lowerq = torch.quantile(real, 0.1)
-    real[real < torch.quantile(real, 0.5)] = 999 ##just test for high values areas
+    #real[real < torch.quantile(real, 0.5)] = 999 ##just test for high values areas
     #real[real < lowerq] = 999
     fake = gen_out[:,0,...]
     # real = mp(real.unsqueeze(0))
@@ -183,10 +183,10 @@ for sample in random:
     for i in range(128):
         for j in range(128):
             obs = real[i,j].numpy()
-            if(obs != 999):
-                ensemble = fake[:,i,j].flatten().numpy()
-                allvals = np.append(ensemble,obs)
-                rankvals.append(sorted(allvals).index(obs))
+            #if(obs != 999):
+            ensemble = fake[:,i,j].flatten().numpy()
+            allvals = np.append(ensemble,obs)
+            rankvals.append(sorted(allvals).index(obs))
 
     allrank.append(rankvals)
         
@@ -197,9 +197,34 @@ merid = l2
 
 ###plot marginal distributions
 coarse_in = coarse[42,...]
+plt.imshow(coarse_in[0,...].cpu())
 coarse_in = coarse_in.unsqueeze(0).repeat(batchsize,1,1,1)
 
 gen_out = G(coarse_in, invariant).cpu().detach()
+plt.imshow(gen_out[0,0,...])
+plt.imshow(gen_out[1,0,...])
+plt.imshow(gen_out[2,0,...])
+plt.imshow(gen_out[3,0,...])
+
+fig, axs = plt.subplots(2, 2)
+axs[0, 0].imshow(gen_out[0,0,...])
+axs[0,0].axis('off')
+axs[0,0].axis('tight')
+axs[0,0].axis('image')
+axs[0, 1].imshow(gen_out[1,0,...])
+axs[0,1].axis('off')
+axs[0,1].axis('tight')
+axs[0,1].axis('image')
+axs[1, 0].imshow(gen_out[2,0,...])
+axs[1,0].axis('off')
+axs[1,0].axis('tight')
+axs[1,0].axis('image')
+axs[1, 1].imshow(gen_out[12,0,...])
+axs[1,1].axis('off')
+axs[1,1].axis('tight')
+axs[1,1].axis('image')  # square up the image instead of filling the "figure" space
+plt.show()
+
 for i in range(5):
     fine_gen = G(coarse_in, invariant)
     gen_out = torch.cat([gen_out,fine_gen.cpu().detach()],0)

@@ -19,5 +19,5 @@ def define_experiment(mlclient):
     return mlclient.get_experiment_by_name(set_exp).experiment_id
 
 def write_tags():
-    choice = "(16x16) Temperature with increase variance weighting"
+    choice = "(16x16) Just Humid with PFS"
     return choice
