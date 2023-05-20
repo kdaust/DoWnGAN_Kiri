@@ -56,7 +56,7 @@ crps.CRPS(GR[:,11,110].flatten(), RR[11,110].cpu()).compute()
 #################################3
 ##generate temperature fields
 G = mlflow.pytorch.load_model("Generators/dbba1469156c44ae8ebeaa4a239ecef9/artifacts/Generator/Generator_500")
-data_folder = "/home/kiridaust/Masters/Data/processed_data/ds_temp/"
+data_folder = "../Data/ds_temphumid/"
 
 cond_fields = xr.open_dataset(data_folder + "coarse_validation.nc", engine="netcdf4")
 fine_fields = xr.open_dataset(data_folder + "fine_validation.nc", engine="netcdf4")
@@ -66,6 +66,15 @@ invariant = xr.open_dataset(data_folder + "DEM_Crop.nc", engine = "netcdf4")
 invariant = torch.from_numpy(invariant.to_array().to_numpy()).to(device).float()
 batchsize = 32
 invariant = invariant.repeat(batchsize,1,1,1)
+
+fine_sm = fine[0:5,0,...]
+test = fine_sm[0,...]-fine_sm[1,...]
+t1 = torch.argsort(fine_sm, dim = 0)
+plt.imshow(t1[0,...].cpu())
+plt.show()
+test_hist = torch.histc(t1[0,...],bins = 5)
+test_hist2 = torch.histc(t1[1,...],bins = 5)
+t2 = torch.add(test_hist,test_hist2)
 
 allgen = []
 for i in range(32):
@@ -133,6 +142,7 @@ mod_noise = "/media/data/mlflow_exp/4/6f3f3b042510493cb385939d57864de3/artifacts
 mod_noise = "/media/data/mlflow_exp/4/9b1ddd858c8c49b285b1cb3dd1d01172/artifacts/Generator/Generator_80"
 G = mlflow.pytorch.load_model("Generators/dbba1469156c44ae8ebeaa4a239ecef9/artifacts/Generator/Generator_500/")
 #data_folder = "/home/kiridaust/Masters/Data/processed_data/ds_temp/"
+
 #data_folder = "/home/kiridaust/Masters/Data/ToyDataSet/Bimodal_Synth/"
 data_folder = "../Data/ds_temphumid/"
 
@@ -191,7 +201,7 @@ for sample in random:
     
     real = fine[sample,0,...].cpu()
     #lowerq = torch.quantile(real, 0.1)
-    real[real < torch.quantile(real, 0.5)] = 999 ##just test for high values areas
+    #real[real < torch.quantile(real, 0.5)] = 999 ##just test for high values areas
     #real[real < lowerq] = 999
     fake = gen_out[:,0,...]
     # real = mp(real.unsqueeze(0))
@@ -200,10 +210,10 @@ for sample in random:
     for i in range(128):
         for j in range(128):
             obs = real[i,j].numpy()
-            if(obs != 999):
-                ensemble = fake[:,i,j].flatten().numpy()
-                allvals = np.append(ensemble,obs)
-                rankvals.append(sorted(allvals).index(obs))
+            #if(obs != 999):
+            ensemble = fake[:,i,j].flatten().numpy()
+            allvals = np.append(ensemble,obs)
+            rankvals.append(sorted(allvals).index(obs))
 
     allrank.append(rankvals)
         
@@ -213,6 +223,7 @@ plt.hist(l2)
 merid = l2
 
 ###plot marginal distributions
+
 batchsize = 16
 coarse_in = torch.mean(coarse,0)
 plt.imshow(coarse_in[0,...].cpu())

@@ -18,8 +18,8 @@ from mlflow.tracking import MlflowClient
 
 highres_in = True
 toydata = False
-#data_folder = "/home/kiridaust/Masters/Data/processed_data/ds_temp/"
-data_folder = "/home/kdaust/Masters/ds_temp/"
+data_folder = "/home/kiridaust/Masters/Data/processed_data/ds_temp/"
+#data_folder = "/home/kdaust/Masters/ds_humid/"
 #data_folder = "/home/kiridaust/Masters/Data/Synth_DEM/Weight10/"
 
 def load_preprocessed():

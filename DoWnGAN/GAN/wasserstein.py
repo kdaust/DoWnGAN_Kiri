@@ -4,7 +4,6 @@ from DoWnGAN.config import config
 from DoWnGAN.GAN.losses import content_loss, variance_loss
 from DoWnGAN.mlflow_tools.gen_grid_plots import gen_grid_images
 from DoWnGAN.mlflow_tools.mlflow_epoch import post_epoch_metric_mean, gen_batch_and_log_metrics, initialize_metric_dicts, log_network_models
-
 import torch
 from torch.autograd import grad as torch_grad
 
@@ -65,7 +64,7 @@ class WassersteinGAN:
         self.C_optimizer.step()
 
 
-    def _generator_train_iteration(self, coarse, fine, invariant):
+    def _generator_train_iteration(self, coarse, fine, invariant, iteration):
         """
         Performs one iteration of the generator training.
         Args:
@@ -88,23 +87,31 @@ class WassersteinGAN:
             cont_loss = content_loss(fake_low, real_low, device=config.device)
         else: ##stochastic mean
             c_fake = self.C(fake) ## wasserstein distance
-            batch_var = torch.mean(torch.var(fine,0),(1,2))
+            ##batch_var = torch.mean(torch.var(fine,0),(1,2))
             fake_li = []
-            fake_var = []
+            hist_vals = torch.zeros(6)
+            expect_vals = torch.full([6],(fine.shape[-1]**2 * fine.shape[0]) / 6) ##multiply by batchsize
             for img in range(coarse.shape[0]):
                 coarse_rep = coarse[img,...].unsqueeze(0).repeat(5,1,1,1) ##same number as batchsize for now
                 fake_stoch = self.G(coarse_rep,invariant[0:5,...])
-                stoch_var = torch.var(fake_stoch, 0)
                 fake_mean = torch.mean(fake_stoch,0) ##now just one image for each predictand
                 fake_li.append(fake_mean)
-                fake_var.append(torch.mean(stoch_var,(1,2)))
+                fake_stoch = torch.cat(fine[img,...],fake_stoch,0)
+                rank = torch.argsort(fake_stoch, dim = 0)
+                rank = rank[0,...]
+                hist_temp = torch.histc(rank, bins = 6)
+                hist_vals = torch.add(hist_vals, hist_temp)
+                del rank
+                del hist_temp
                 del coarse_rep
                 del fake_stoch
                 del fake_mean
                 #torch.cuda.empty_cache()
-            stoch_var_mean = torch.stack(fake_var)
-            var_diff = torch.abs(stoch_var_mean - batch_var)
-            var_loss = torch.mean(var_diff)
+            #stoch_var_mean = torch.stack(fake_var)
+            #var_diff = torch.abs(stoch_var_mean - batch_var)
+            #var_loss = torch.mean(var_diff)
+            err = (expect_vals - hist_vals)/hist_vals
+            rh_err = torch.sum(err**2) #sum of squared error
             fake_means = torch.stack(fake_li)
             cont_loss = content_loss(fake_means, fine, device=config.device)
             #print("Variance loss:", var_loss)
@@ -112,8 +119,15 @@ class WassersteinGAN:
 
         # Add content loss and create objective function
         #v_loss = variance_loss(fine, fake, device=config.device)
-        g_loss = -torch.mean(c_fake) * hp.gamma + hp.content_lambda * cont_loss + 2 * var_loss
+        if(iteration % 50 == 0):
+          print("*"*80)
+          print("Critic:",hp.gamma*-torch.mean(c_fake))
+          print("Content:",hp.content_lambda * cont_loss)
+          print("Variance:",rh_err)
+          print("*"*80)
 
+        
+        g_loss = -torch.mean(c_fake) * hp.gamma + hp.content_lambda * cont_loss + 1 * rh_err
         g_loss.backward()
 
         # Update the generator
@@ -166,7 +180,7 @@ class WassersteinGAN:
         train_metrics = initialize_metric_dicts({})
         test_metrics = initialize_metric_dicts({})
 
-        for data in dataloader:
+        for i,data in enumerate(dataloader):
             coarse = data[0].to(config.device)
             fine = data[1].to(config.device)
             if(highres_in):
@@ -177,7 +191,7 @@ class WassersteinGAN:
             self._critic_train_iteration(coarse, fine, invariant)
 
             if self.num_steps%hp.critic_iterations == 0:
-                self._generator_train_iteration(coarse, fine, invariant)
+                self._generator_train_iteration(coarse, fine, invariant,i)
 
             # Track train set metrics
             train_metrics = gen_batch_and_log_metrics(
