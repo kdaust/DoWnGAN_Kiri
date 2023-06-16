@@ -5,6 +5,45 @@ from torch.nn.modules.utils import _pair, _quadruple
 from pytorch_msssim import MS_SSIM
 
 
+def crps_empirical(pred, truth): ##adapted from https://docs.pyro.ai/en/stable/_modules/pyro/ops/stats.html#crps_empirical
+    """
+    Computes negative Continuous Ranked Probability Score CRPS* [1] between a
+    set of samples ``pred`` and true data ``truth``. This uses an ``n log(n)``
+    time algorithm to compute a quantity equal that would naively have
+    complexity quadratic in the number of samples ``n``::
+
+        CRPS* = E|pred - truth| - 1/2 E|pred - pred'|
+              = (pred - truth).abs().mean(0)
+              - (pred - pred.unsqueeze(1)).abs().mean([0, 1]) / 2
+
+    Note that for a single sample this reduces to absolute error.
+
+
+    :param torch.Tensor pred: A set of sample predictions batched on rightmost dim.
+        This should have shape ``(num_samples,) + truth.shape``.
+    :param torch.Tensor truth: A tensor of true observations.
+    :return: A tensor of shape ``truth.shape``.
+    :rtype: torch.Tensor
+    """
+    if pred.shape[1:] != (1,) * (pred.dim() - truth.dim() - 1) + truth.shape:
+        raise ValueError(
+            "Expected pred to have one extra sample dim on left. "
+            "Actual shapes: {} versus {}".format(pred.shape, truth.shape)
+        )
+    opts = dict(device=pred.device, dtype=pred.dtype)
+    num_samples = pred.size(0)
+    if num_samples == 1:
+        return (pred[0] - truth).abs()
+
+    pred = pred.sort(dim=0).values
+    diff = pred[1:] - pred[:-1]
+    weight = torch.arange(1, num_samples, **opts) * torch.arange(
+        num_samples - 1, 0, -1, **opts
+    )
+    weight = weight.reshape(weight.shape + (1,) * (diff.dim() - 1))
+
+    return torch.mean((pred - truth).abs().mean(0) - (diff * weight).sum(0) / num_samples**2)
+
 def wass_loss(real, fake, device):
     return real - fake
 
@@ -60,6 +99,39 @@ def variance_loss(real: torch.Tensor, fake: torch.Tensor, device: torch.device) 
     fake_var = torch.var(fake, (2,3))
     var_loss = torch.abs(real_var - fake_var)
     return(torch.mean(var_loss))
+
+def rankhist_loss(G, coarse, fine, invariant, device) -> float: 
+    hist_vals = torch.zeros(12, device=device, requires_grad=True)
+    expect_vals = torch.full([12],(fine.shape[-1]**2 * fine.shape[0]) / 12, device=device,requires_grad=True) ##multiply by batchsize
+    for img in range(coarse.shape[0]):
+        coarse_rep = coarse[img,...].unsqueeze(0).repeat(11,1,1,1) ##same number as batchsize for now
+        fake_stoch = G(coarse_rep,invariant[0:11,...])
+        fake_stoch = torch.cat((fine[img,...].unsqueeze(0),fake_stoch),0)
+        rank = torch.argsort(fake_stoch, dim = 0)
+        rank = rank[0,...]
+        hist_temp = torch.histc(rank, bins = 12)
+        hist_vals = torch.add(hist_vals, hist_temp)
+        del rank
+        del hist_temp
+        del coarse_rep
+        del fake_stoch
+
+    err = (expect_vals - hist_vals)/hist_vals
+    #print("Error: ", err)
+    rh_err = torch.sum(torch.abs(err)) #sum of squared error
+    return(rh_err)
+
+def crps_loss(G, coarse, fine, invariant, device) -> float: 
+    all_crps = []
+    n_realisation = 8
+    for img in range(coarse.shape[0]):
+        coarse_rep = coarse[img,...].unsqueeze(0).repeat(n_realisation,1,1,1) ##same number as batchsize for now
+        fake_stoch = G(coarse_rep,invariant[0:n_realisation,...])
+        all_crps.append(crps_empirical(fake_stoch, fine[img,...])) ##calculate crps for each image
+        del fake_stoch
+    
+    crps = torch.stack(all_crps)
+    return(torch.mean(crps))
 
 
 

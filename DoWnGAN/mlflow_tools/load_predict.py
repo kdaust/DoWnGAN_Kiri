@@ -101,7 +101,7 @@ class NetCDFSR(Dataset):
         return coarse_, fine_, invarient_
 
 
-def calc_ralsd(G,dataloader):
+def calc_ralsd(G,dataloader,pred_num):
     torch.cuda.empty_cache()
     RALSD = []
     for i, data in enumerate(dataloader):
@@ -112,7 +112,7 @@ def calc_ralsd(G,dataloader):
         out = G(data[0],data[2])
         #print(data[1][:,0,...].size())
         real = data[1][:,0,...].cpu().detach().numpy()
-        zonal = out[:,0,...].cpu().detach().numpy()
+        zonal = out[:,pred_num,...].cpu().detach().numpy()
         #merid = out[:,1,...].cpu().detach().numpy()
         #real = data[1].cpu().detach().numpy()
         #fake = out.cpu().detach().numpy()
@@ -134,10 +134,11 @@ def calc_ralsd(G,dataloader):
 # models = ['d4c12d8ef6b84871bc0cb5fd18d638ef','4b906c3c6fe54f09832fcb9f22011f98','d3211ab32ecc4b41a5181c6ebdb3f83f','65e9cd4ba68045bdb79526d0196b654e']
 # modNm = ['Cov_LR','Cov_Both','Inject_LowCL','Inject_PFS']
 #models = ['b190fb9c6b63458e9152c6b7706cb1f8/artifacts/Generator/Generator_200', 'b190fb9c6b63458e9152c6b7706cb1f8/artifacts/Generator/Generator_300','b190fb9c6b63458e9152c6b7706cb1f8/artifacts/Generator/Generator_460']
-models = ['971937cd44424b438c113ead26c4384d/artifacts/Generator/Generator_500','dbba1469156c44ae8ebeaa4a239ecef9/artifacts/Generator/Generator_500']
-modNm = ['Temp', 'Temp+Humid']
+models = ['d71b88600fc54a0da41941f51693b800/artifacts/Generator/Generator_500','dbba1469156c44ae8ebeaa4a239ecef9/artifacts/Generator/Generator_500']
+modNm = ['Humid', 'Temp+Humid']
+pred_num = [0,1]
 
-data_folder = "/home/kiridaust/Masters/Data/processed_data/ds_temp/"
+data_folder = "/home/kiridaust/Masters/Data/processed_data/ds_humid/"
 
 cond_fields = xr.open_dataset(data_folder + "coarse_validation.nc", engine="netcdf4")
 fine_fields = xr.open_dataset(data_folder + "fine_validation.nc", engine="netcdf4")
@@ -175,7 +176,7 @@ for i in range(len(models)):
         dataset=datasets[i], batch_size=16, shuffle=True
     )
     
-    RALSD = calc_ralsd(G, dataloader)
+    RALSD = calc_ralsd(G, dataloader, pred_num[i])
     ral = np.mean(RALSD,axis = 0)
     sdral = np.std(RALSD,axis = 0)
     res[modNm[i]] = np.column_stack((ral,sdral))

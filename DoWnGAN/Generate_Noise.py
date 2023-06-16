@@ -16,6 +16,7 @@ import seaborn as sns
 import CRPS as crps
 device = torch.device("cuda:0")
 
+
 ### test CRPS metrics
 G_toy = mlflow.pytorch.load_model("/media/data/mlflow_exp/4/94c6d5ecb2d84eb085d424cf0c7248e3/artifacts/Generator/Generator_500")
 G_real = mlflow.pytorch.load_model("/media/data/mlflow_exp/4/65e9cd4ba68045bdb79526d0196b654e/artifacts/Generator/Generator_500")
@@ -138,13 +139,14 @@ np.save("CRPS_Comp.npy",dat)
 
 ########################################
 #mod_noise = "/media/data/mlflow_exp/4/94c6d5ecb2d84eb085d424cf0c7248e3/artifacts/Generator/Generator_500"
-mod_noise = "/media/data/mlflow_exp/4/6f3f3b042510493cb385939d57864de3/artifacts/Generator/Generator_480" ##dem+10
-mod_noise = "/media/data/mlflow_exp/4/9b1ddd858c8c49b285b1cb3dd1d01172/artifacts/Generator/Generator_80"
-G = mlflow.pytorch.load_model("Generators/dbba1469156c44ae8ebeaa4a239ecef9/artifacts/Generator/Generator_500/")
-#data_folder = "/home/kiridaust/Masters/Data/processed_data/ds_temp/"
+#mod_noise = "/media/data/mlflow_exp/4/6f3f3b042510493cb385939d57864de3/artifacts/Generator/Generator_480" ##dem+10
+mod_noise = "/media/data/mlflow_exp/4/b190fb9c6b63458e9152c6b7706cb1f8/artifacts/Generator/Generator_250"
+mod_noise = "/media/data/mlflow_exp/4/971937cd44424b438c113ead26c4384d/artifacts/Generator/Generator_500"
+G = mlflow.pytorch.load_model(mod_noise)
+data_folder = "/home/kiridaust/Masters/Data/processed_data/ds_temp/"
 
 #data_folder = "/home/kiridaust/Masters/Data/ToyDataSet/Bimodal_Synth/"
-data_folder = "../Data/ds_temphumid/"
+#data_folder = "../Data/ds_temphumid/"
 
 coarse = np.load(data_folder+"coarse_val.npy")
 coarse = np.swapaxes(coarse, 0, 2)
@@ -159,28 +161,53 @@ plt.show()
 invar = np.load(data_folder+"dem_crop.npy")
 invariant = torch.from_numpy(invar)[None,...].to(device).float()
 
-cond_fields = xr.open_dataset(data_folder + "coarse_test.nc", engine="netcdf4")
-fine_fields = xr.open_dataset(data_folder + "fine_test.nc", engine="netcdf4")
-coarse = torch.from_numpy(cond_fields.to_array().to_numpy()).transpose(0, 1)
-fine = torch.from_numpy(fine_fields.to_array().to_numpy()).transpose(0, 1)
+cond_fields = xr.open_dataset(data_folder + "coarse_validation.nc", engine="netcdf4")
+fine_fields = xr.open_dataset(data_folder + "fine_validation.nc", engine="netcdf4")
+coarse = torch.from_numpy(cond_fields.to_array().to_numpy()).transpose(0, 1).to(device).float()
+fine = torch.from_numpy(fine_fields.to_array().to_numpy()).transpose(0, 1).to(device).float()
 invariant = xr.open_dataset(data_folder + "DEM_Crop.nc", engine = "netcdf4")
 invariant = torch.from_numpy(invariant.to_array().to_numpy()).to(device).float()
 
 
-batchsize = 4
+batchsize = 16
+sample = 5
 invariant = invariant.repeat(batchsize,1,1,1)
-coarse_in = coarse[0:batchsize,...].to(device).float()
-gen = G(coarse_in, invariant)
-gen.shape
-gen = gen.cpu().detach()
-plt.imshow(gen[0,0,...])
-plt.show()
-plt.close()
-plt.imshow(gen[3,1,...])
-plt.show()
-plt.imshow(fine[3,1,...])
-plt.show()
 
+coarse_in = coarse[sample,...]
+coarse_in = coarse_in.unsqueeze(0).repeat(batchsize,1,1,1)
+
+gen_out = G(coarse_in, invariant)
+real = fine[sample,...]
+from DoWnGAN.GAN.losses import crps_empirical
+
+res = crps_empirical(gen_out, real)
+torch.mean(res)
+
+gentest = gen_out[0,...]
+real = torch.squeeze(real)
+plt.imshow(gentest.cpu().detach())
+
+gen_out[gen_out > torch.unsqueeze(real, 0)] = -999
+
+
+
+
+plt.imshow(gen_out[3,...].cpu().detach())
+
+for i in range(5):
+    fine_gen = G(coarse_in, invariant)
+    gen_out = torch.cat([gen_out,fine_gen.cpu().detach()],0)
+    del fine_gen
+
+plt.imshow(gen_out[53,0,...])
+plt.imshow(gen_out[1,0,...])
+plt.imshow(gen_out[124,0,...])
+plt.imshow(gen_out[87,0,...])
+stoch_var = torch.var(gen_out, dim = 0)
+plt.imshow(stoch_var[0,...])
+plt.imshow(invariant[0,0,...].cpu())
+plt.imshow(fine[sample,0,...].cpu())
+plt.imshow(coarse_in[0,0,...].cpu())
 # noise_f = torch.normal(0,1,size = [batchsize,1,128,128], device=device)
 # invariant = torch.cat([invariant, noise_f], 1)
 # print(invariant.size())
