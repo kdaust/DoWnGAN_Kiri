@@ -16,7 +16,7 @@ import os
 # Hyper params
 gp_lambda = 10
 critic_iterations = 5
-batch_size = 8
+batch_size = 64
 gamma = 0.01
 content_lambda = 10
 #variance_lambda = 8
@@ -40,6 +40,5 @@ metrics_to_calculate = {
     "MAE": content_loss,
     "MSE": content_MSELoss,
     #"VLoss": variance_loss,
-    "Wass": wass_loss,
-    "CRPS": crps_loss
+    "Wass": wass_loss
 }

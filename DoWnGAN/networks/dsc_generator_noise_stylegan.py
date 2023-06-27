@@ -30,10 +30,11 @@ class DenseResidualBlock(nn.Module):
     The core module of paper: (Residual Dense Network for Image Super-Resolution, CVPR 18)
     """
 
-    def __init__(self, filters, resolution = 16, res_scale=0.8):
+    def __init__(self, filters, sampler, resolution = 16, res_scale=0.8):
         super(DenseResidualBlock, self).__init__()
         self.res_scale = res_scale
         self.resolution = resolution
+        self.sampler = sampler
 
         def block(in_features, non_linearity=True):
             layers = [nn.Conv2d(in_features, filters, 3, 1, 1, bias=True)]
@@ -47,33 +48,45 @@ class DenseResidualBlock(nn.Module):
         self.b4 = block(in_features=4 * filters + 4)
         self.b5 = block(in_features=5 * filters + 5, non_linearity=False)
         self.blocks = [self.b1, self.b2, self.b3, self.b4, self.b5]
-        self.noise_strength = torch.nn.Parameter(torch.mul(torch.ones([]),10))
+        self.noise_strength = torch.nn.Parameter(torch.mul(torch.ones([]),1))
 
     def forward(self, x):
-        noise = torch.normal(0,1,size = [x.shape[0], 1, self.resolution, self.resolution], device=x.device)
+        if self.resolution == 16:
+            noise = self.sampler.sampling(x.shape[0])
+        else:
+            noise = torch.normal(0,1,size = [x.shape[0], 1, self.resolution, self.resolution], device=x.device)
+
         #print("Noise Size",noise.size())
         inputs = torch.cat([x,noise],1)
         #print(inputs.size())
         for block in self.blocks:
             out = block(inputs)
-            noise = torch.normal(0,1,size = [x.shape[0], 1, self.resolution, self.resolution], device=x.device)
+            if self.resolution == 16:
+                noise = self.sampler.sampling(x.shape[0])
+            else:
+                noise = torch.normal(0,1,size = [x.shape[0], 1, self.resolution, self.resolution], device=x.device)
+
             inputs = torch.cat([inputs, out, noise], 1)
             # inputs = torch.cat([inputs, out], 1)
             # inputs.add_(noise)
             #print(inputs.size())
         
-        noise = torch.normal(0,1,size = [x.shape[0], 1, self.resolution, self.resolution], device=x.device)
+        if self.resolution == 16:
+            noise = self.sampler.sampling(x.shape[0])
+        else:
+            noise = torch.normal(0,1,size = [x.shape[0], 1, self.resolution, self.resolution], device=x.device)
+
         noiseScale = noise * self.noise_strength
         out = out.mul(self.res_scale) + x
         out.add_(noiseScale)
         return out
 
 class ResidualInResidualDenseBlock(nn.Module):
-    def __init__(self, filters, resolution = 16, res_scale=0.2):
+    def __init__(self, filters, resolution = 16, sampler = None, res_scale=0.2):
         super(ResidualInResidualDenseBlock, self).__init__()
         self.res_scale = res_scale
         self.dense_blocks = nn.Sequential(
-            DenseResidualBlock(filters, resolution=resolution), DenseResidualBlock(filters,resolution=resolution), DenseResidualBlock(filters,resolution=resolution)
+            DenseResidualBlock(filters, sampler = sampler, resolution=resolution), DenseResidualBlock(filters, sampler = sampler, resolution=resolution), DenseResidualBlock(filters,sampler = sampler, resolution=resolution)
         )
 
     def forward(self, x):
@@ -81,14 +94,14 @@ class ResidualInResidualDenseBlock(nn.Module):
     
 class Generator(nn.Module):
     # coarse_dim_n, fine_dim_n, n_covariates, n_predictands
-    def __init__(self, filters, fine_dims, channels_coarse, channels_invariant, n_predictands=2, num_res_blocks=16, num_res_blocks_fine = 2, num_upsample=3):
+    def __init__(self, filters, fine_dims, channels_coarse, channels_invariant, b_sampler, n_predictands=2, num_res_blocks=16, num_res_blocks_fine = 2, num_upsample=3):
         super(Generator, self).__init__()
         self.fine_res = fine_dims
         # First layer
         self.conv1 = nn.Conv2d(channels_coarse, filters, kernel_size=3, stride=1, padding=1)
         self.conv1f = nn.Conv2d(channels_invariant, filters, kernel_size=3, stride=1, padding=1)
         # Residual blocks
-        self.res_blocks = nn.Sequential(*[ResidualInResidualDenseBlock(filters,resolution=filters) for _ in range(num_res_blocks)])
+        self.res_blocks = nn.Sequential(*[ResidualInResidualDenseBlock(filters,sampler=b_sampler,resolution=filters) for _ in range(num_res_blocks)])
         self.res_blocksf = nn.Sequential(*[ResidualInResidualDenseBlock(filters,resolution=fine_dims) for _ in range(num_res_blocks_fine)])
         # self.res_blocksf = DenseResidualBlock(filters,resolution=fine_dims)
         # Second conv layer post residual blocks

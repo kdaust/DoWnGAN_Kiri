@@ -19,5 +19,5 @@ def define_experiment(mlclient):
     return mlclient.get_experiment_by_name(set_exp).experiment_id
 
 def write_tags():
-    choice = "(16x16) Temp CRPS metric first test"
+    choice = "(16x16) Temp test Bourgain Embed"
     return choice
