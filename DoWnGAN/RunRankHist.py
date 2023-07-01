@@ -19,7 +19,7 @@ from DoWnGAN.GAN.BourgainEmbed import BourgainSampler
 
 device = torch.device("cuda:0")
 
-mod_noise = "/media/data/mlflow_exp/4/33a9d16d865d49999f2107d7e614315c/artifacts/Generator/Generator_500"
+mod_noise = "/media/data/mlflow_exp/4/fcfc2d47696843f7bdccf16e452727d0/artifacts/Generator/Generator_140"
 G = mlflow.pytorch.load_model(mod_noise)
 data_folder = "/home/kiridaust/Masters/Data/processed_data/ds_temp/"
 
@@ -67,4 +67,7 @@ for sample in random:
 l2 = np.array([item for sub in allrank for item in sub])
 plt.hist(l2)
 
-plt.imshow(gen_out[24,0,...].cpu())
+plt.imshow(gen_out[36,0,...].cpu())
+stdgen = torch.var(gen_out, dim = 0).cpu()
+stdgen = torch.squeeze(stdgen)
+plt.imshow(stdgen)
