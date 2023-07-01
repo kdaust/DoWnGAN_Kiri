@@ -16,7 +16,7 @@ import os
 # Hyper params
 gp_lambda = 10
 critic_iterations = 5
-batch_size = 64
+batch_size = 48
 gamma = 0.01
 content_lambda = 10
 #variance_lambda = 8
@@ -30,7 +30,7 @@ save_every = 100
 use_cuda = True
 
 # Frequency separation parameters
-filter_size = 9
+filter_size = 7
 padding = filter_size // 2
 low = nn.AvgPool2d(filter_size, stride=1, padding=0)
 rf = nn.ReplicationPad2d(padding)
