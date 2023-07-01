@@ -4,7 +4,7 @@ from DoWnGAN.GAN.losses import (
     content_MSELoss,
     SSIM_Loss,
     wass_loss,
-    variance_loss
+    crps_loss
 )
 
 import torch.nn as nn
@@ -16,7 +16,7 @@ import os
 # Hyper params
 gp_lambda = 10
 critic_iterations = 5
-batch_size = 16
+batch_size = 64
 gamma = 0.01
 content_lambda = 10
 #variance_lambda = 8
