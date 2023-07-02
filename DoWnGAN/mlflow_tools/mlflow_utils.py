@@ -19,5 +19,5 @@ def define_experiment(mlclient):
     return mlclient.get_experiment_by_name(set_exp).experiment_id
 
 def write_tags():
-    choice = "(16x16) Temp non-stochastic, increased noise variance"
+    choice = "(16x16) Temp non-stochastic, increased noise variance to (3,0.1,1)"
     return choice
