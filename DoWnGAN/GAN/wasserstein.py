@@ -9,7 +9,7 @@ from torch.autograd import grad as torch_grad
 
 import mlflow
 highres_in = True
-freq_sep = True
+freq_sep = False
 torch.autograd.set_detect_anomaly(True)
 
 
@@ -87,22 +87,22 @@ class WassersteinGAN:
             cont_loss = content_loss(fake_low, real_low, device=config.device)
         else: ##stochastic mean
             c_fake = self.C(fake) ## wasserstein distance
-            #all_crps = []
+            all_crps = []
             fake_li = []
-            n_realisation = 8
+            n_realisation = 6
             for img in range(coarse.shape[0]):
                 coarse_rep = coarse[img,...].unsqueeze(0).repeat(n_realisation,1,1,1) ##same number as batchsize for now
                 fake_stoch = self.G(coarse_rep,invariant[0:n_realisation,...])
                 fake_li.append(torch.mean(fake_stoch,0))
-                #all_crps.append(crps_empirical(fake_stoch, fine[img,...])) ##calculate crps for each image
+                all_crps.append(crps_empirical(fake_stoch, fine[img,...])) ##calculate crps for each image
                 del fake_stoch
             
             fake_means = torch.stack(fake_li)
-            #crps = torch.stack(all_crps)
+            crps = torch.stack(all_crps)
             cont_loss = content_loss(fake_means, fine, device=config.device)
             #print("Variance loss:", var_loss)
             #print("Content loss:", cont_loss)        
-        g_loss = -torch.mean(c_fake) * hp.gamma + hp.content_lambda * cont_loss #+ 5 * torch.mean(crps)
+        g_loss = -torch.mean(c_fake) * hp.gamma + hp.content_lambda * cont_loss + 20 * torch.mean(crps)
         g_loss.backward()
 
         # Update the generator

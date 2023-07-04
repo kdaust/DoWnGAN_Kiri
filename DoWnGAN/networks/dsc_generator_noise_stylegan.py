@@ -91,7 +91,7 @@ class Generator(nn.Module):
         self.conv1 = nn.Conv2d(channels_coarse, filters, kernel_size=3, stride=1, padding=1)
         self.conv1f = nn.Conv2d(channels_invariant, filters, kernel_size=3, stride=1, padding=1)
         # Residual blocks
-        self.res_blocks = nn.Sequential(*[ResidualInResidualDenseBlock(filters,resolution=filters,noise_sd = 3) for _ in range(num_res_blocks)])
+        self.res_blocks = nn.Sequential(*[ResidualInResidualDenseBlock(filters,resolution=filters,noise_sd = 1) for _ in range(num_res_blocks)])
         self.res_blocksf = nn.Sequential(*[ResidualInResidualDenseBlock(filters,resolution=fine_dims,noise_sd=0.1) for _ in range(num_res_blocks_fine)])
         # self.res_blocksf = DenseResidualBlock(filters,resolution=fine_dims)
         # Second conv layer post residual blocks
