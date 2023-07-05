@@ -1,5 +1,5 @@
 # Calculates epoch losses and logs them
-from DoWnGAN.GAN.losses import content_loss, content_MSELoss, SSIM_Loss
+from DoWnGAN.GAN.losses import content_loss, content_MSELoss, SSIM_Loss, rankhist_loss
 from DoWnGAN.config import config
 import DoWnGAN.config.hyperparams as hp
 import DoWnGAN.GAN.stage as s
@@ -64,6 +64,8 @@ def gen_batch_and_log_metrics(G, C, coarse, real, invariant, d):
     for key in hp.metrics_to_calculate.keys():
         if key == "Wass":
             d[key].append(hp.metrics_to_calculate[key](creal, cfake, config.device).detach().cpu().item())
+        elif key == "CRPS":
+            d[key].append(hp.metrics_to_calculate[key](G,coarse, real, invariant, config.device).cpu().item())
         else:
             d[key].append(hp.metrics_to_calculate[key](real, fake, config.device).detach().cpu().item())
     return d

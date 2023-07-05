@@ -1,11 +1,12 @@
 # Begin - load the data and initiate training
 # Defines the hyperparameter and constants configurationsimport gc
-from DoWnGAN.networks.dsc_generator_noise_stylegan import Generator
+from DoWnGAN.networks.generator_toydata import Generator
 from DoWnGAN.networks.critic import Critic
 from DoWnGAN.GAN.dataloader import NetCDFSR
 import DoWnGAN.mlflow_tools.mlflow_utils as mlf 
 import DoWnGAN.config.hyperparams as hp
 from DoWnGAN.config import config
+#from DoWnGAN.GAN.BourgainEmbed import BourgainSampler
 #from DoWnGAN.helpers.gen_experiment_datasets import generate_train_test_coarse_fine, load_preprocessed
 from xarray.core import dataset
 from xarray.core.dataset import Dataset
@@ -16,10 +17,10 @@ import torch
 
 from mlflow.tracking import MlflowClient
 
-highres_in = True
-toydata = False
+highres_in = False
+toydata = True
 #data_folder = "/home/kiridaust/Masters/Data/processed_data/ds_temp/"
-data_folder = "/home/kdaust/Masters/ds_temp/"
+data_folder = "/home/kdaust/Masters/SynthReg/"
 #data_folder = "/home/kiridaust/Masters/Data/Synth_DEM/Weight10/"
 
 def load_preprocessed():
@@ -39,8 +40,8 @@ def load_preprocessed():
        coarse_test = np.swapaxes(coarse_test, 0, 2)
        fine_test = np.load(data_folder+"fine_test.npy")
        fine_test = np.swapaxes(fine_test, 0, 2)
-       invar = np.load(data_folder+"dem_crop.npy")
-       return coarse_train, fine_train, coarse_test, fine_test, invar
+       #invar = np.load(data_folder+"dem_crop.npy")
+       return coarse_train, fine_train, coarse_test, fine_test, None#, invar
 
 
 assert torch.cuda.is_available(), "CUDA not available"
@@ -57,6 +58,11 @@ if(not toydata):
     coarse_test = torch.from_numpy(coarse_test.to_array().to_numpy()).transpose(0, 1).to(config.device).float()
     fine_test = torch.from_numpy(fine_test.to_array().to_numpy()).transpose(0, 1).to(config.device).float()
     invarient = torch.from_numpy(invarient.to_array().to_numpy().squeeze(0)).to(config.device).float()
+    
+    # print("Creating Bourgain Embedding")
+    # test_data = fine_train[torch.randint(0,8000,(1,400)),0,...].cpu()
+    # test_data = torch.squeeze(test_data)
+    # z_sampler = BourgainSampler(test_data)
     # Uncomment to add stochasticity
     # #torch.normal(0,2,size = [x.shape[0], 1, self.resolution, self.resolution], device=x.device)
     # noise_train = torch.normal(0,1,size = [coarse_train.shape[0], 1, coarse_train.shape[2],coarse_train.shape[3]], device=config.device)
@@ -74,8 +80,8 @@ else:
     # coarse_test = torch.cat([coarse_test, noise_test], 1)
     fine_train = torch.from_numpy(fine_train)[:,None,...].to(config.device).float()
     fine_test = torch.from_numpy(fine_test)[:,None,...].to(config.device).float()
-    invarient = torch.from_numpy(invarient)[None,...].to(config.device).float()
-    print(invarient.shape)
+    #invarient = torch.from_numpy(invarient)[None,...].to(config.device).float()
+    #print(invarient.shape)
 print("Yep this works...")
 
 class StageData:
@@ -91,6 +97,7 @@ class StageData:
         self.n_predictands = fine_train.shape[1] ##adding invariant
         self.coarse_dim_n = coarse_train.shape[-1]
         self.n_covariates = coarse_train.shape[1]##adding invarient
+        # self.sampler = z_sampler
         
         if(highres_in):
             # Get shapes for networks
@@ -107,7 +114,7 @@ class StageData:
             print("Network dimensions: ")
             print("Fine: ", self.fine_dim_n, "x", self.n_predictands)
             print("Coarse: ", self.coarse_dim_n, "x", self.n_covariates)
-            print("Generator params: ",self.coarse_dim_n,self.fine_dim_n,self.n_covariates,self.n_predictands)
+            #print("Generator params: ",self.coarse_dim_n,self.fine_dim_n,self.n_covariates,self.n_predictands)
             self.critic = Critic(self.coarse_dim_n, self.fine_dim_n, self.n_predictands).to(config.device)
             self.generator = Generator(self.coarse_dim_n, self.fine_dim_n, self.n_covariates, self.n_predictands).to(config.device)
 

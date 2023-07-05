@@ -7,30 +7,13 @@ Created on Fri Dec  9 10:28:05 2022
 """
 
 import mlflow
-import mlflow.pytorch
-
 from xarray.core.dataset import Dataset
 import xarray as xr
 import netCDF4
 import numpy as np
 
 import torch
-import matplotlib.pyplot as plt
-import os
 import pickle
-# os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
-# HR = torch.load("C:/Users/kirid/Desktop/Masters/GAN_Results/Validation/HR_topo_GEN.pt")
-# LR = torch.load("C:/Users/kirid/Desktop/Masters/GAN_Results/Validation/LR_topo_GEN.pt")
-
-# num = 7
-# plt.imshow(HR[num,1,...])
-# plt.imshow(LR[num,1,...])
-# np.savetxt("HR_Generate.csv", HR[7,0,...],delimiter=',')
-# np.savetxt("LR_Generate.csv", LR[7,0,...],delimiter=',')
-
-
-device = torch.device("cuda:0")
-
 import scipy.stats
 
 def ralsd(img,real):
@@ -101,7 +84,7 @@ class NetCDFSR(Dataset):
         return coarse_, fine_, invarient_
 
 
-def calc_ralsd(G,dataloader):
+def calc_ralsd(G,dataloader,pred_num):
     torch.cuda.empty_cache()
     RALSD = []
     for i, data in enumerate(dataloader):
@@ -112,7 +95,7 @@ def calc_ralsd(G,dataloader):
         out = G(data[0],data[2])
         #print(data[1][:,0,...].size())
         real = data[1][:,0,...].cpu().detach().numpy()
-        zonal = out[:,0,...].cpu().detach().numpy()
+        zonal = out[:,pred_num,...].cpu().detach().numpy()
         #merid = out[:,1,...].cpu().detach().numpy()
         #real = data[1].cpu().detach().numpy()
         #fake = out.cpu().detach().numpy()
@@ -133,10 +116,12 @@ def calc_ralsd(G,dataloader):
 
 # models = ['d4c12d8ef6b84871bc0cb5fd18d638ef','4b906c3c6fe54f09832fcb9f22011f98','d3211ab32ecc4b41a5181c6ebdb3f83f','65e9cd4ba68045bdb79526d0196b654e']
 # modNm = ['Cov_LR','Cov_Both','Inject_LowCL','Inject_PFS']
-models = ['971937cd44424b438c113ead26c4384d/artifacts/Generator/Generator_80','9b1ddd858c8c49b285b1cb3dd1d01172/artifacts/Generator/Generator_80']
-modNm = ['TempPFS','TempStochVar']
+#models = ['b190fb9c6b63458e9152c6b7706cb1f8/artifacts/Generator/Generator_200', 'b190fb9c6b63458e9152c6b7706cb1f8/artifacts/Generator/Generator_300','b190fb9c6b63458e9152c6b7706cb1f8/artifacts/Generator/Generator_460']
+models = ['d71b88600fc54a0da41941f51693b800/artifacts/Generator/Generator_500','dbba1469156c44ae8ebeaa4a239ecef9/artifacts/Generator/Generator_500']
+modNm = ['Humid', 'Temp+Humid']
+pred_num = [0,1]
 
-data_folder = "/home/kiridaust/Masters/Data/processed_data/ds_temp/"
+data_folder = "/home/kiridaust/Masters/Data/processed_data/ds_humid/"
 
 cond_fields = xr.open_dataset(data_folder + "coarse_validation.nc", engine="netcdf4")
 fine_fields = xr.open_dataset(data_folder + "fine_validation.nc", engine="netcdf4")
@@ -145,6 +130,8 @@ fine = torch.from_numpy(fine_fields.to_array().to_numpy()).transpose(0, 1).to(de
 invariant = xr.open_dataset(data_folder + "DEM_Crop.nc", engine = "netcdf4")
 invariant = torch.from_numpy(invariant.to_array().to_numpy().squeeze(0)).to(device).float()
 invariant = invariant.repeat(coarse.shape[0],1,1,1)
+ds = NetCDFSR(coarse, fine, invariant, device=device)
+
 
 # cond_fields = xr.open_dataset(data_folder + "coarse_test.nc", engine="netcdf4")
 # fine_fields = xr.open_dataset(data_folder + "fine_test.nc", engine="netcdf4")
@@ -160,7 +147,7 @@ invariant = invariant.repeat(coarse.shape[0],1,1,1)
 
 #ds_nc = NetCDFSR(coarse_noise, fine, invariant, device=device)
 #ds_nb = NetCDFSR(coarse_noise, fine, invariant_noise, device=device)
-ds = NetCDFSR(coarse, fine, invariant, device=device)
+
 datasets = [ds,ds] ##datasets for each model
 
 res = dict()
@@ -172,7 +159,7 @@ for i in range(len(models)):
         dataset=datasets[i], batch_size=16, shuffle=True
     )
     
-    RALSD = calc_ralsd(G, dataloader)
+    RALSD = calc_ralsd(G, dataloader, pred_num[i])
     ral = np.mean(RALSD,axis = 0)
     sdral = np.std(RALSD,axis = 0)
     res[modNm[i]] = np.column_stack((ral,sdral))
@@ -181,6 +168,9 @@ for i in range(len(models)):
 for nm in modNm:
     plt.plot(res[nm][:,0], label = nm)
     plt.fill_between(range(64),res[nm][:,0]+res[nm][:,1],res[nm][:,0]-res[nm][:,1], alpha = 0.1)
+plt.hlines(y = 1, xmin=0, xmax=60, color = "black")
+plt.xlabel("Frequency Band")
+plt.ylabel("Standardised Amplitude")
 plt.legend()
 plt.savefig('RALSD_Temperature.png',dpi = 600)
 
