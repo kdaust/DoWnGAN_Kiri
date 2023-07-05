@@ -45,6 +45,7 @@ sigmoid <- function(x){
 
 sample_axes <- c(-1,0,1)
 nsamp = 128
+##Bimodal
 ##generate stochastic test set
 curr_samp <- sample(sample_axes,size = 2)
 xaxis <- seq(curr_samp[1],curr_samp[2], length.out = 128)
@@ -81,7 +82,7 @@ carr <- as.array(outcoarse)
 
 library(reticulate)
 np <- import("numpy")
-dem <- np$load("Data/Synth_DEM/dem_crop.npy")
+#dem <- np$load("Data/Synth_DEM/dem_crop.npy")
 image(dem)
 dem_weight <- 10
 ##generate single test set
@@ -90,22 +91,22 @@ dem_weight <- 10
 library(terra)
 for(numrast in 1:8000){
   if(numrast %% 100 == 0) cat("iteration",numrast,"\n")
-  # curr_samp <- sample(sample_axes,size = 2)
-  # xaxis <- seq(curr_samp[1],curr_samp[2], length.out = 128)
-  # curr_samp <- sample(sample_axes,size = 2)
-  # yaxis <- seq(curr_samp[1],curr_samp[2], length.out = 128)
-  # dat <- as.data.table(cbind(expand.grid(xaxis,yaxis),expand.grid(xax = 1:128,yax =1:128)))
-  # dat[,Val := sigmoid(Var1)*exp(Var2)]
-  # d2 <- dcast(dat, xax ~ yax, value.var = "Val")
-  # d2[,xax := NULL]
-  # meanmat <- as.matrix(d2)
+  curr_samp <- sample(sample_axes,size = 2)
+  xaxis <- seq(curr_samp[1],curr_samp[2], length.out = 128)
+  curr_samp <- sample(sample_axes,size = 2)
+  yaxis <- seq(curr_samp[1],curr_samp[2], length.out = 128)
+  dat <- as.data.table(cbind(expand.grid(xaxis,yaxis),expand.grid(xax = 1:128,yax =1:128)))
+  dat[,Val := sigmoid(Var1)*exp(Var2)]
+  d2 <- dcast(dat, xax ~ yax, value.var = "Val")
+  d2[,xax := NULL]
+  meanmat <- as.matrix(d2)
   
   distr1 <- mvrnorm(n = nsamp,mu = rep(0,128),Sigma = sig2)
   #distr2 <- mvrnorm(n = nsamp,mu = rep(5,128),Sigma = sig2)
   #binmask <- matrix(rbinom(128^2, size = 1, prob = 0.35),128)
   #distr1[binmask == 1] <- distr2[binmask == 1]
-  mat2 <- distr1 + dem * dem_weight
-  #mat2 <- mat2^2
+  mat2 <- meanmat + distr1
+  mat2 <- mat2^2
   rfine <- rast(mat2)
   matds <- down_sample_image(mat2,factor = 8, gaussian_blur = T)
   rcoarse <- rast(matds)
@@ -128,14 +129,14 @@ carr <- as.array(outcoarse)
 
 library(reticulate)
 np <- import("numpy")
-np$save("Data/Synth_DEM/Weight1/fine_train.npy",farr[,,1:5000])
-np$save("Data/Synth_DEM/Weight1/coarse_train.npy",carr[,,1:5000])
+np$save("../Data/SynthReg/fine_train.npy",farr[,,1:5000])
+np$save("../Data/SynthReg/coarse_train.npy",carr[,,1:5000])
 
-np$save("Data/Synth_DEM/Weight1/fine_test.npy",farr[,,5001:7000])
-np$save("Data/Synth_DEM/Weight1/coarse_test.npy",carr[,,5001:7000])
+np$save("../Data/SynthReg/fine_test.npy",farr[,,5001:7000])
+np$save("../Data/SynthReg/coarse_test.npy",carr[,,5001:7000])
 
-np$save("Data/Synth_DEM/Weight1/fine_val_reg.npy",farr[,,7001:8000])
-np$save("Data/Synth_DEM/Weight1/coarse_val_reg.npy",carr[,,7001:8000])
+np$save("../Data/SynthReg/fine_val_reg.npy",farr[,,7001:8000])
+np$save("../Data/SynthReg/coarse_val_reg.npy",carr[,,7001:8000])
 
 png("Rank_Hists.png",width = 8, height = 4, units = "in", res = 600)
 par(mfrow = c(1,3))
