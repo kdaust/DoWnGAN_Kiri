@@ -1,0 +1,282 @@
+---
+title: "GAN Summary"
+author: "Kiri Daust"
+date: "2023-05-25"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE, echo=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(reticulate)
+library(ggplot2)
+library(data.table)
+mod_name = "Noise Inject with Wind"
+epoch = "500"
+gen_location <- "Generators/wind/noise_inject/"
+data_loc <- "./ds_wind/"
+batchsize <- 4
+var_name <- "Wind"
+```
+
+# `r paste(mod_name,"(epoch",epoch,")")`
+
+```{python vars}
+import mlflow
+import mlflow.pytorch
+import xarray as xr
+import netCDF4
+import numpy as np
+import torch
+import scipy.stats
+import matplotlib.pyplot as plt
+#from DoWnGAN.GAN.BourgainEmbed import BourgainSampler
+device = torch.device("cuda:0")
+
+###specify generator
+G = mlflow.pytorch.load_model(r.gen_location)
+
+###specify data
+data_folder = r.data_loc
+
+# coarse_train = np.load(data_folder+"coarse_val_reg.npy")
+# coarse_train = np.swapaxes(coarse_train, 0, 2)
+# fine_train = np.load(data_folder+"fine_val_reg.npy")
+# fine_train = np.swapaxes(fine_train, 0, 2)
+# coarse = torch.from_numpy(coarse_train)[:,None,...]
+# fine = torch.from_numpy(fine_train)[:,None,...]
+
+cond_fields = xr.open_dataset(data_folder + "coarse_test.nc", engine="netcdf4")
+fine_fields = xr.open_dataset(data_folder + "fine_test.nc", engine="netcdf4")
+coarse = torch.from_numpy(cond_fields.to_array().to_numpy()).transpose(0, 1)
+fine = torch.from_numpy(fine_fields.to_array().to_numpy()).transpose(0, 1)
+invariant = xr.open_dataset(data_folder + "DEM_Crop.nc", engine = "netcdf4")
+invariant = torch.from_numpy(invariant.to_array().to_numpy())
+
+# test_data = fine[torch.randint(0,8000,(1,400)),0,...].cpu()
+# test_data = torch.squeeze(test_data)
+# z_sampler = BourgainSampler(test_data)
+
+```
+
+## Example Realisations
+
+```{python realisations}
+invariant_in = invariant.repeat(int(r.batchsize),1,1,1).to(device).float()
+
+sample = 524
+coarse_in = coarse[sample,...]
+coarse_in = coarse_in.unsqueeze(0).repeat(int(r.batchsize),1,1,1).to(device).float()
+
+gen_out = G(coarse_in, invariant_in).cpu().detach()
+#gen_out = G(coarse_in).cpu().detach()
+
+plt.imshow(fine[sample,0,...])
+plt.show()
+
+figure, axis = plt.subplots(2, 2)
+  
+# For Sine Function
+axis[0, 0].imshow(gen_out[0,0,...])
+axis[0, 1].imshow(gen_out[1,0,...])
+axis[1, 0].imshow(gen_out[2,0,...])
+axis[1, 1].imshow(gen_out[3,0,...])
+  
+# Combine all the operations and display
+plt.show()
+```
+
+## Radially Averaged Log Spectral Distance
+
+```{python ralsdfn, echo = FALSE}
+def ralsd(img,real):
+    # Input data
+    ynew = img # Generated data
+    npix = ynew.shape[-1] # Shape of image in one dimension
+
+    # Define the wavenumbers basically
+    kfreq = np.fft.fftfreq(npix) * npix 
+    kfreq2D = np.meshgrid(kfreq, kfreq) 
+    knrm = np.sqrt(kfreq2D[0]**2 + kfreq2D[1]**2) # Magnitude of wavenumber/vector
+    knrm = knrm.flatten() 
+
+    # Computes the fourier transform and returns the amplitudes
+    def calculate_2dft(image):
+        fourier_image = np.fft.fftn(image)
+        fourier_amplitudes = np.abs(fourier_image)**2
+        return fourier_amplitudes.flatten()
+
+    powers = []
+    for i in range(ynew.shape[0]):
+        wind_2d = calculate_2dft(ynew[i, ...])
+        wind_real = calculate_2dft(real[i,...])
+        kbins = np.arange(0.5, npix//2+1, 1.) # Bins to average the spectra
+        # kvals = 0.5 * (kbins[1:] + kbins[:-1]) # "Interpolate" at the bin center
+        # This ends up computing the radial average (kinda weirdly because knrm and wind_2d are flat, but
+        # unique knrm bins correspond to different radii (calculated above)
+        Abins, _, _ = scipy.stats.binned_statistic(knrm, wind_2d, statistic = "mean", bins = kbins) 
+        Abins *= np.pi * (kbins[1:]**2 - kbins[:-1]**2)
+        
+        # now for ground truth
+        Abins_R, _, _ = scipy.stats.binned_statistic(knrm, wind_real, statistic = "mean", bins = kbins) 
+        Abins_R *= np.pi * (kbins[1:]**2 - kbins[:-1]**2)
+        Abins_stand = Abins/Abins_R
+        # Add to a list -- each element is a RASPD
+        powers.append(Abins_stand)
+    return(powers)
+
+class NetCDFSR:
+    """Data loader from torch.Tensors"""
+    def __init__(
+        self,
+        coarse: torch.Tensor,
+        fine: torch.Tensor,
+        invarient: torch.Tensor,
+        device: torch.device,
+    ) -> torch.Tensor:
+        """
+        Initializes the dataset.
+        Returns:
+            torch.Tensor: The dataset batches.
+        """
+        self.fine = fine
+        self.coarse = coarse
+        self.invarient = invarient
+
+    def __len__(self):
+        return self.fine.size(0)
+
+    def __getitem__(self, idx):
+
+        if torch.is_tensor(idx):
+            idx = idx.tolist()
+        fine_ = self.fine[idx,...]
+        coarse_ = self.coarse[idx,...]
+        invarient_ = self.invarient[idx,...]
+        #invarient_ = self.invarient
+        return coarse_, fine_, invarient_
+
+
+def calc_ralsd(G,dataloader):
+    torch.cuda.empty_cache()
+    RALSD = []
+    gen_img = []
+    real_img = []
+    for i, data in enumerate(dataloader):
+        if(i > 100):
+            break
+        ##print("running batch ", i)
+        #torch.cuda.empty_cache()
+        out = G(data[0].to("cuda:0").float(),data[2].to("cuda:0").float())
+        #out = G(data[0].to("cuda:0").float())
+        #print(data[1][:,0,...].size())
+        real = data[1][:,0,...].cpu().detach()
+        zonal = out[:,0,...].cpu().detach()
+        gen_img.append(zonal)
+        real_img.append(real)
+        
+        distMetric = ralsd(zonal.numpy(),real.numpy())
+        t1 = np.mean(distMetric,axis = 0)
+        RALSD.append(t1)
+        #print("RALSD: ",log_dist)
+        del data
+        del out
+        del real
+    gen = torch.stack(gen_img,0)
+    real = torch.stack(real_img,0)
+    return(RALSD, gen, real)
+```
+
+```{python ralsd}
+invariant_in = invariant.repeat(coarse.shape[0],1,1,1)
+ds = NetCDFSR(coarse, fine, invariant_in, device=device)
+#ds = NetCDFSR(coarse, fine, device=device)
+
+dataloader = torch.utils.data.DataLoader(
+    dataset=ds, batch_size=4, shuffle=True
+)
+
+RALSD, genval, realvals = calc_ralsd(G, dataloader)
+genval = genval.numpy().flatten()
+realvals = realvals.numpy().flatten()
+ral = np.mean(RALSD,axis = 0)
+sdral = np.std(RALSD,axis = 0)
+
+plt.close()
+plt.plot(ral, label = "RALSD")
+plt.fill_between(range(64),ral+sdral,ral-sdral, alpha = 0.1)
+plt.hlines(y = 1, xmin=0, xmax=60, color = "black")
+plt.xlabel("Frequency Band")
+plt.ylabel("Standardised Amplitude")
+plt.legend()
+plt.show()
+```
+
+## Simple Summary Statistics
+
+```{r violin}
+dat <- data.table(Generated = py$genval,Real = py$realvals)
+#summary(dat)
+
+datlong <- melt(dat)
+datSum <- datlong[,.(Mean = mean(value), Variance = var(value), q99 = quantile(value, 0.99),q01 = quantile(value, 0.01)), by = .(variable)]
+knitr::kable(datSum,digits = 3)
+
+ggplot(datlong, aes(x = variable, y = value, group = variable)) +
+  geom_violin(draw_quantiles = c(0.25,0.5,0.75)) +
+  xlab("Type") +
+  ylab(var_name)
+```
+
+## Rank Histogram
+
+```{python rhist}
+random = torch.randint(0, 1000, (30, ))
+invariant_in = invariant.repeat(int(r.batchsize),1,1,1).to(device).float()
+
+allrank = []
+#mp = torch.nn.MaxPool2d(8)
+for sample in random:
+    ##print("Processing",sample)
+    coarse_in = coarse[sample,...]
+    coarse_in = coarse_in.unsqueeze(0).repeat(int(r.batchsize),1,1,1).to(device).float()
+
+    gen_out = G(coarse_in, invariant_in).cpu().detach()
+    for i in range(24):
+        fine_gen = G(coarse_in, invariant_in)
+        gen_out = torch.cat([gen_out,fine_gen.cpu().detach()],0)
+        del fine_gen
+    
+    real = torch.squeeze((fine[sample,0,...]))
+    fake = torch.squeeze((gen_out[:,0,...]))
+
+    rankvals = []
+    for i in range(128):
+        for j in range(128):
+            obs = real[i,j].numpy()
+            ensemble = fake[:,i,j].flatten().numpy()
+            allvals = np.append(ensemble,obs)
+            rankvals.append(sorted(allvals).index(obs))
+
+    allrank.append(rankvals)
+        
+l2 = np.array([item for sub in allrank for item in sub])
+```
+
+```{python}
+plt.hist(l2, bins=10, density=True)
+plt.xlabel("Rank")
+plt.ylabel("Density")
+plt.savefig('CRPS_Temp_RankHist.png',dpi = 600)
+```
+
+```{r histgraph}
+hist(py$l2, main = "Rank Histogram", xlab = "Rank", breaks = 10)
+```
+
+
+
+
+
+
