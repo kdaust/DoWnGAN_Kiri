@@ -4,13 +4,57 @@ import mlflow
 import matplotlib.pyplot as plt
 
 device = torch.device("cuda:0")
+gen_location = "../Generators/wind_stochastic_justcrps/"
+G = mlflow.pytorch.load_model(gen_location)
 
+import xarray as xr
+batchsize = 4
+data_folder = "../Data/ds_wind/"
+cond_fields = xr.open_dataset(data_folder + "coarse_test.nc", engine="netcdf4")
+fine_fields = xr.open_dataset(data_folder + "fine_test.nc", engine="netcdf4")
+coarse = torch.from_numpy(cond_fields.to_array().to_numpy()).transpose(0, 1)
+fine = torch.from_numpy(fine_fields.to_array().to_numpy()).transpose(0, 1)
+invariant = xr.open_dataset(data_folder + "DEM_Crop.nc", engine = "netcdf4")
+invariant = torch.from_numpy(invariant.to_array().to_numpy())
+
+##rank histogram
+def rankhist_preds(G, coarse, fine, invariant):
+  batchsize = 4
+  random = torch.randint(0, 1000, (700, ))
+  inv_in = invariant.repeat(int(batchsize),1,1,1).to(device).float()
+  ens = []
+  truth = []
+  for sample in random:
+      print("Processing",sample)
+      coarse_in = coarse[sample,...]
+      coarse_in = coarse_in.unsqueeze(0).repeat(int(batchsize),1,1,1).to(device).float()
+
+      gen_out = G(coarse_in, inv_in).cpu().detach()
+      for i in range(9):
+          fine_gen = G(coarse_in,inv_in)
+          gen_out = torch.cat([gen_out,fine_gen.cpu().detach()],0)
+          del fine_gen
+      
+      real = torch.squeeze((fine[sample,0,64,120])).numpy()
+      fake = torch.squeeze((gen_out[:,0,64,120]))
+      ens.append(fake.unsqueeze(1))
+      truth.append(real)
+      
+      # real = torch.squeeze((fine[sample,0,...]))
+      # fake = torch.squeeze((gen_out[:,0,...]))
+      # ens.append(torch.reshape(fake, [100,128*128]))
+      # truth.append(torch.reshape(real, [128*128]))
+  return(torch.cat(ens, 1).numpy(), np.array(truth))
+
+ens, real = rankhist_preds(G, coarse, fine, invariant)
+ens2 = ens.numpy()
+real2 = real.numpy()
 ###specify generator
-gen_location = "Generators/Synthetic/New/Generator_250/"
+gen_location = "../Generators/synthetic_noiseinject_nosmall/"
 G = mlflow.pytorch.load_model(gen_location)
 
 ###specify data
-data_folder = "../Data/SynthReg/OldVersion/SynthOrig/"
+data_folder = "../Data/synthetic/no_small/"
 coarse_train = np.load(data_folder+"coarse_stochastic.npy")
 coarse_train = np.swapaxes(coarse_train, 0, 2)
 fine_train = np.load(data_folder+"fine_stochastic.npy")
@@ -25,11 +69,79 @@ batchsize = 8
 coarse_in = coarse_mn.repeat(batchsize, 1,1,1).to(device).float()
 
 gen_out = G(coarse_in).cpu().detach()
-for i in range(32):
+for i in range(64):
     fine_gen = G(coarse_in)
     gen_out = torch.cat([gen_out,fine_gen.cpu().detach()],0)
     del fine_gen
     
+import scipy.stats
+ks_res_ninj = np.empty([128,128])
+for i in range(128):
+  for j in range(128):
+    gen = gen_out[0:500,0,i,j]
+    target = fine[:,0,i,j]
+    test = scipy.stats.kstest(gen,target)
+    ks_res_ninj[i,j] = test.statistic'
+    
+ks_ninj = ks_res_ninj.flatten()
+
+plt.close()
+plt.imshow(ks_res)
+plt.show()
+
+t1 = ks_res.flatten()
+t2 = t1[t1 > 0.05]
+print(t2.size/t1.size)
+
+import seaborn as sns
+xp = 64
+yp = 120
+gen_ninj = gen_out[:,0,xp,yp].flatten()
+gen_ninj = gen_ninj.numpy()
+samp2 = fine[:,0,xp,yp].flatten()
+plt.close()
+sns.kdeplot(samp1,label = "Gen")
+sns.kdeplot(samp2,label = "Real")
+plt.legend()
+plt.show()
+
+##noise covariate
+gen_location = "../Generators/synthetic_noisecovar_nosmall/"
+G = mlflow.pytorch.load_model(gen_location)
+noise = torch.normal(0,1,size = [batchsize, 1, coarse.shape[2], coarse.shape[3]])
+coarse_orig = coarse_mn.repeat(batchsize, 1,1,1)
+coarse_in = torch.cat([coarse_orig,noise], dim = 1).to(device).float()
+
+gen_out = G(coarse_in).cpu().detach()
+for i in range(64):
+    noise = torch.normal(0,1,size = [batchsize, 1, coarse.shape[2], coarse.shape[3]])
+    coarse_in = torch.cat([coarse_orig,noise], dim = 1).to(device).float()
+    fine_gen = G(coarse_in)
+    gen_out = torch.cat([gen_out,fine_gen.cpu().detach()],0)
+    del fine_gen
+
+ks_res_ncov = np.empty([128,128])
+for i in range(128):
+  for j in range(128):
+    gen = gen_out[0:500,0,i,j]
+    target = fine[:,0,i,j]
+    test = scipy.stats.kstest(gen,target)
+    ks_res_ncov[i,j] = test.statistic
+
+ks_ncov = ks_res_ncov.flatten()
+
+xp = 64
+yp = 120
+gen_ncov = gen_out[:,0,xp,yp].flatten().numpy()
+real_marg = fine[:,0,xp,yp].flatten().numpy()
+plt.close()
+sns.kdeplot(samp1,label = "Gen")
+sns.kdeplot(samp2,label = "Real")
+plt.legend()
+plt.show()
+
+
+
 quant = 0.5
 gen_quantile = torch.quantile(gen_out, quant, dim = 0)
 gen_quantile = torch.squeeze(gen_quantile)

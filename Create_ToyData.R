@@ -57,14 +57,17 @@ d2 <- dcast(dat, xax ~ yax, value.var = "Val")
 d2[,xax := NULL]
 meanmat <- as.matrix(d2)
 image(meanmat)
+meanmat <- meanmat + 5
 
 for(numrast in 1:500){
   if(numrast %% 100 == 0) cat("iteration",numrast,"\n")
   distr1 <- mvrnorm(n = nsamp,mu = rep(1,128),Sigma = sig2)
-  distr2 <- mvrnorm(n = nsamp,mu = rep(5,128),Sigma = sig2)
-  binmask <- matrix(rbinom(128^2, size = 1, prob = 0.35),128)
-  distr1[binmask == 1] <- distr2[binmask == 1]
-  mat2 <- distr1*meanmat
+  #distr2 <- mvrnorm(n = nsamp,mu = rep(5,128),Sigma = sig2)
+  #binmask <- matrix(rbinom(128^2, size = 1, prob = 0.35),128)
+  #distr1[binmask == 1] <- distr2[binmask == 1]
+  #mat2 <- distr1*meanmat
+  mat2 <- meanmat + distr1
+  mat2 <- mat2^2
   rfine <- rast(mat2)
   matds <- down_sample_image(mat2,factor = 8, gaussian_blur = T)
   rcoarse <- rast(matds)
@@ -82,6 +85,9 @@ carr <- as.array(outcoarse)
 
 library(reticulate)
 np <- import("numpy")
+np$save("../Data/synthetic/no_small/fine_stochastic.npy",farr)
+np$save("../Data/synthetic/no_small/coarse_stochastic.npy",carr)
+
 #dem <- np$load("Data/Synth_DEM/dem_crop.npy")
 image(dem)
 dem_weight <- 10
@@ -100,6 +106,7 @@ for(numrast in 1:8000){
   d2 <- dcast(dat, xax ~ yax, value.var = "Val")
   d2[,xax := NULL]
   meanmat <- as.matrix(d2)
+  meanmat <- meanmat + 5
   
   distr1 <- mvrnorm(n = nsamp,mu = rep(0,128),Sigma = sig2)
   #distr2 <- mvrnorm(n = nsamp,mu = rep(5,128),Sigma = sig2)
@@ -129,14 +136,14 @@ carr <- as.array(outcoarse)
 
 library(reticulate)
 np <- import("numpy")
-np$save("../Data/SynthReg/fine_train.npy",farr[,,1:5000])
-np$save("../Data/SynthReg/coarse_train.npy",carr[,,1:5000])
+np$save("../Data/synthetic/no_small/fine_train.npy",farr[,,1:5000])
+np$save("../Data/synthetic/no_small/coarse_train.npy",carr[,,1:5000])
 
-np$save("../Data/SynthReg/fine_test.npy",farr[,,5001:7000])
-np$save("../Data/SynthReg/coarse_test.npy",carr[,,5001:7000])
+np$save("../Data/synthetic/no_small/fine_test.npy",farr[,,5001:7000])
+np$save("../Data/synthetic/no_small/coarse_test.npy",carr[,,5001:7000])
 
-np$save("../Data/SynthReg/fine_val_reg.npy",farr[,,7001:8000])
-np$save("../Data/SynthReg/coarse_val_reg.npy",carr[,,7001:8000])
+np$save("../Data/synthetic/no_small/fine_val_reg.npy",farr[,,7001:8000])
+np$save("../Data/synthetic/no_small/coarse_val_reg.npy",carr[,,7001:8000])
 
 png("Rank_Hists.png",width = 8, height = 4, units = "in", res = 600)
 par(mfrow = c(1,3))

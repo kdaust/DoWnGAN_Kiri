@@ -12,10 +12,10 @@ knitr::opts_chunk$set(echo = FALSE)
 library(reticulate)
 library(ggplot2)
 library(data.table)
-mod_name = "Noise Inject with Wind"
-epoch = "500"
-gen_location <- "Generators/wind/noise_inject/"
-data_loc <- "./ds_wind/"
+mod_name = "Synthetic, noise inject, no small"
+epoch = "250"
+gen_location <- "../Generators/synthetic_noiseinject_nosmall/"
+data_loc <- "../Data/synthetic/no_small/"
 batchsize <- 4
 var_name <- "Wind"
 ```
