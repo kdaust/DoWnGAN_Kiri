@@ -7,33 +7,39 @@ Created on Mon Jan 16 11:22:36 2023
 
 import nctoolkit as nc
 import numpy as np
+import random
 
+# random.seed(3.14159)
+# rand_steps = random.sample(range(61344),30000)
+# print(rand_steps[0:5])
 ##era5
-fine = True
+fine = False
 
 coarse_covars = {
-    "temp": "/home/kiridaust/Masters/Data/Era5/temp_raw.nc",
-    "humid": "/home/kiridaust/Masters/Data/Era5/era5_specific_humid.nc",
-    "pressure": "/home/kiridaust/Masters/Data/Era5/pressure_raw.nc",
-    "evap": "/home/kiridaust/Masters/Data/Era5/evap_raw.nc"
+    "u10": "/home/kiridaust/Masters/Data/Era5/wind_vars/U10LR.nc",
+    "v10": "/home/kiridaust/Masters/Data/Era5/wind_vars/V10LR.nc",
+    "temp": "/home/kiridaust/Masters/Data/Era5/wind_vars/TLR.nc",
+    #"humid": "/home/kiridaust/Masters/Data/Era5/era5_specific_humid.nc",
+    "pressure": "/home/kiridaust/Masters/Data/Era5/wind_vars/PSLR3.nc",
+    #"evap": "/home/kiridaust/Masters/Data/Era5/evap_raw.nc"
     }
 
 coarse_out = {
-    "train": "/home/kiridaust/Masters/Data/processed_data/ds_temphumid/coarse_train.nc",
-    "test": "/home/kiridaust/Masters/Data/processed_data/ds_temphumid/coarse_test.nc",
-    "val": "/home/kiridaust/Masters/Data/processed_data/ds_temphumid/coarse_validation.nc"
+    "train": "/home/kiridaust/Masters/Data/processed_data/ds_wind_full/coarse_train.nc",
+    "test": "/home/kiridaust/Masters/Data/processed_data/ds_wind_full/coarse_test.nc",
+    "val": "/home/kiridaust/Masters/Data/processed_data/ds_wind_full/coarse_validation.nc"
     }
 
 fine_covars = {
-    "temp": "/home/kiridaust/Masters/Data/temperature/wrf_temp.nc",
-    "humid": "/home/kiridaust/Masters/Data/temperature/wrf_humid.nc"
+    "u10": "/home/kiridaust/Masters/Data/WRF/wind_raw/all_u10.nc",
+    "v10": "/home/kiridaust/Masters/Data/WRF/wind_raw/all_v10.nc"
     #"precip": "/home/kiridaust/Masters/Data/WRF/prec_raw.nc"
     }
 
 fine_out = {
-    "train": "/home/kiridaust/Masters/Data/processed_data/ds_temphumid/fine_train.nc",
-    "test": "/home/kiridaust/Masters/Data/processed_data/ds_temphumid/fine_test.nc",
-    "val": "/home/kiridaust/Masters/Data/processed_data/ds_temphumid/fine_validation.nc"
+    "train": "/home/kiridaust/Masters/Data/processed_data/ds_wind_full/fine_train.nc",
+    "test": "/home/kiridaust/Masters/Data/processed_data/ds_wind_full/fine_test.nc",
+    "val": "/home/kiridaust/Masters/Data/processed_data/ds_wind_full/fine_validation.nc"
     }
 
 train_region = [-126,-122,49,53]
@@ -58,7 +64,7 @@ for i,covar in enumerate(file_dict.keys()):
     # if(covar == 'precip'):
     #     temp.top()
     #     temp.run()
-    temp.subset(years = range(2001,2007)) #Just so we're not dealing with massive datasets
+    temp.subset(years = range(2001,2015)) #Just so we're not dealing with massive datasets
     #temp.cdo_command("setmissval,0")
     temp.to_latlon(lon = [bounds[0],bounds[1]], lat = [bounds[2],bounds[3]], res = [spatial_res,spatial_res])
     temp.run()
@@ -100,17 +106,18 @@ for i,covar in enumerate(file_dict.keys()):
     else:
         ds_out.append(temp)
 
+
 print("saving datasets")
 ds_out.merge()
 train = ds_out.copy()
 ##separate train and test
-train.subset(years = 2005)
+train.subset(years = [2003,2008,2013])
 train.to_nc(out_dict["train"])
 test = ds_out.copy()
-test.subset(years = 2006)
+test.subset(years = [2005,2012])
 test.to_nc(out_dict["test"])
-ds_out.subset(years = 2004)
-ds_out.to_nc(out_dict["val"])
+# ds_out.subset([2001,2002,2004,2006,2007,2009,2010,2011,2014])
+# ds_out.to_nc(out_dict["val"])
 
 
 #t2.assign(avg = lambda x: spatial_mean(x.tas), drop = True)

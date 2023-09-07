@@ -1,6 +1,6 @@
 # Begin - load the data and initiate training
 # Defines the hyperparameter and constants configurationsimport gc
-from DoWnGAN.networks.dsc_generator_noise_stylegan import Generator
+from DoWnGAN.networks.generator_toydata_n3 import Generator
 from DoWnGAN.networks.critic import Critic
 from DoWnGAN.GAN.dataloader import NetCDFSR
 import DoWnGAN.mlflow_tools.mlflow_utils as mlf 
@@ -17,9 +17,9 @@ import torch
 
 from mlflow.tracking import MlflowClient
 
-highres_in = True
-toydata = False
-data_folder = "/home/kiridaust/Masters/Data/processed_data/ds_temp/"
+highres_in = False
+toydata = True
+data_folder = "/home/kiridaust/Masters/Data/ToyDataSet/no_small/"
 #data_folder = "/home/kdaust/Masters/ds_humid/"
 #data_folder = "/home/kiridaust/Masters/Data/Synth_DEM/Weight10/"
 
@@ -40,8 +40,8 @@ def load_preprocessed():
        coarse_test = np.swapaxes(coarse_test, 0, 2)
        fine_test = np.load(data_folder+"fine_test.npy")
        fine_test = np.swapaxes(fine_test, 0, 2)
-       invar = np.load(data_folder+"dem_crop.npy")
-       return coarse_train, fine_train, coarse_test, fine_test, invar
+       #invar = np.load(data_folder+"dem_crop.npy")
+       return coarse_train, fine_train, coarse_test, fine_test, None
 
 
 assert torch.cuda.is_available(), "CUDA not available"
@@ -80,8 +80,8 @@ else:
     # coarse_test = torch.cat([coarse_test, noise_test], 1)
     fine_train = torch.from_numpy(fine_train)[:,None,...].to(config.device).float()
     fine_test = torch.from_numpy(fine_test)[:,None,...].to(config.device).float()
-    invarient = torch.from_numpy(invarient)[None,...].to(config.device).float()
-    print(invarient.shape)
+    #invarient = torch.from_numpy(invarient)[None,...].to(config.device).float()
+    #print(invarient.shape)
 print("Yep this works...")
 
 class StageData:
@@ -116,7 +116,7 @@ class StageData:
             print("Coarse: ", self.coarse_dim_n, "x", self.n_covariates)
             print("Generator params: ",self.coarse_dim_n,self.fine_dim_n,self.n_covariates,self.n_predictands)
             self.critic = Critic(self.coarse_dim_n, self.fine_dim_n, self.n_predictands).to(config.device)
-            self.generator = Generator(self.coarse_dim_n, self.fine_dim_n, self.n_covariates, self.n_predictands).to(config.device)
+            self.generator = Generator(self.coarse_dim_n, self.n_covariates, self.n_predictands).to(config.device)
 
         # Define optimizers
         self.G_optimizer = torch.optim.Adam(self.generator.parameters(), hp.lr, betas=(0.9, 0.99))

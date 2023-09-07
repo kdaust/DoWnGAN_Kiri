@@ -19,5 +19,5 @@ def define_experiment(mlclient):
     return mlclient.get_experiment_by_name(set_exp).experiment_id
 
 def write_tags():
-    choice = "(16x16) Temp stochastic, increased CRPS loss"
+    choice = "(16x16) noise injection synthetic, noise level 3"
     return choice
