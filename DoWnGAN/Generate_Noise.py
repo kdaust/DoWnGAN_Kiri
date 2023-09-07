@@ -89,77 +89,75 @@ torch.save(gen2, "JustTemp_Gens_First1024Validation.pt")
 
 #####################################################################################
 ### Compare CRPS Metrix of wind with regular and variance loss
-G_var = mlflow.pytorch.load_model("/media/data/mlflow_exp/4/b89f2ea32c7d49e1bcc3595e37590fc9/artifacts/Generator/Generator_80")
-G_reg = mlflow.pytorch.load_model("/media/data/mlflow_exp/4/7cf2b23e9bf44b4d92138d0e4c1e2486/artifacts/Generator/Generator_80")
-data_folder = "/home/kiridaust/Masters/Data/processed_data/ds_wind/"
-
-cond_fields = xr.open_dataset(data_folder + "coarse_test.nc", engine="netcdf4")
-fine_fields = xr.open_dataset(data_folder + "fine_test.nc", engine="netcdf4")
-coarse = torch.from_numpy(cond_fields.to_array().to_numpy()).transpose(0, 1).to(device).float()
-fine = torch.from_numpy(fine_fields.to_array().to_numpy()).transpose(0, 1).to(device).float()
-invariant = xr.open_dataset(data_folder + "DEM_Crop.nc", engine = "netcdf4")
-invariant = torch.from_numpy(invariant.to_array().to_numpy()).to(device).float()
-
-batchsize = 32
-invariant = invariant.repeat(batchsize,1,1,1)
-
-random = torch.randint(0, 1000, (30, ))
-# mp = torch.nn.MaxPool2d(8)
-allrank = []
-for sample in random:
-    print("Processing",sample)
-    coarse_in = coarse[sample,...]
-    coarse_in = coarse_in.unsqueeze(0).repeat(batchsize,1,1,1)
-
-    gen_out = G_var(coarse_in, invariant).cpu().detach()
-    for i in range(5):
-        fine_gen = G_var(coarse_in, invariant)
-        gen_out = torch.cat([gen_out,fine_gen.cpu().detach()],0)
-        del fine_gen
-    
-    real = fine[sample,0,...].cpu()
-    fake = gen_out[:,0,...]
-    # real = mp(real.unsqueeze(0))
-    # fake = mp(gen_out[:,0,...])
-    rankvals = []
-    for i in range(128):
-        for j in range(128):
-            obs = real[i,j].numpy()
-            ensemble = fake[:,i,j].flatten().numpy()
-            rankvals.append(crps.CRPS(ensemble,obs).compute()[0])
-            
-    allrank.append(rankvals)
-
-var_crps = np.array([item for sub in allrank for item in sub])
-
-plt.boxplot(reg_crps)
-plt.boxplot(var_crps)
-dat = np.vstack([reg_crps, var_crps])
-np.save("CRPS_Comp.npy",dat)
+# G_var = mlflow.pytorch.load_model("/media/data/mlflow_exp/4/b89f2ea32c7d49e1bcc3595e37590fc9/artifacts/Generator/Generator_80")
+# G_reg = mlflow.pytorch.load_model("/media/data/mlflow_exp/4/7cf2b23e9bf44b4d92138d0e4c1e2486/artifacts/Generator/Generator_80")
+# data_folder = "/home/kiridaust/Masters/Data/processed_data/ds_wind/"
+# 
+# cond_fields = xr.open_dataset(data_folder + "coarse_test.nc", engine="netcdf4")
+# fine_fields = xr.open_dataset(data_folder + "fine_test.nc", engine="netcdf4")
+# coarse = torch.from_numpy(cond_fields.to_array().to_numpy()).transpose(0, 1).to(device).float()
+# fine = torch.from_numpy(fine_fields.to_array().to_numpy()).transpose(0, 1).to(device).float()
+# invariant = xr.open_dataset(data_folder + "DEM_Crop.nc", engine = "netcdf4")
+# invariant = torch.from_numpy(invariant.to_array().to_numpy()).to(device).float()
+# 
+# batchsize = 32
+# invariant = invariant.repeat(batchsize,1,1,1)
+# 
+# random = torch.randint(0, 1000, (30, ))
+# # mp = torch.nn.MaxPool2d(8)
+# allrank = []
+# for sample in random:
+#     print("Processing",sample)
+#     coarse_in = coarse[sample,...]
+#     coarse_in = coarse_in.unsqueeze(0).repeat(batchsize,1,1,1)
+# 
+#     gen_out = G_var(coarse_in, invariant).cpu().detach()
+#     for i in range(5):
+#         fine_gen = G_var(coarse_in, invariant)
+#         gen_out = torch.cat([gen_out,fine_gen.cpu().detach()],0)
+#         del fine_gen
+#     
+#     real = fine[sample,0,...].cpu()
+#     fake = gen_out[:,0,...]
+#     # real = mp(real.unsqueeze(0))
+#     # fake = mp(gen_out[:,0,...])
+#     rankvals = []
+#     for i in range(128):
+#         for j in range(128):
+#             obs = real[i,j].numpy()
+#             ensemble = fake[:,i,j].flatten().numpy()
+#             rankvals.append(crps.CRPS(ensemble,obs).compute()[0])
+#             
+#     allrank.append(rankvals)
+# 
+# var_crps = np.array([item for sub in allrank for item in sub])
+# 
+# plt.boxplot(reg_crps)
+# plt.boxplot(var_crps)
+# dat = np.vstack([reg_crps, var_crps])
+# np.save("CRPS_Comp.npy",dat)
 
 ########################################
 #mod_noise = "/media/data/mlflow_exp/4/94c6d5ecb2d84eb085d424cf0c7248e3/artifacts/Generator/Generator_500"
+
 #mod_noise = "/media/data/mlflow_exp/4/6f3f3b042510493cb385939d57864de3/artifacts/Generator/Generator_480" ##dem+10
 mod_noise = "/media/data/mlflow_exp/4/b190fb9c6b63458e9152c6b7706cb1f8/artifacts/Generator/Generator_250"
 mod_noise = "/media/data/mlflow_exp/4/971937cd44424b438c113ead26c4384d/artifacts/Generator/Generator_500"
 G = mlflow.pytorch.load_model(mod_noise)
 data_folder = "/home/kiridaust/Masters/Data/processed_data/ds_temp/"
 
-#data_folder = "/home/kiridaust/Masters/Data/ToyDataSet/Bimodal_Synth/"
-#data_folder = "../Data/ds_temphumid/"
 
-coarse = np.load(data_folder+"coarse_val.npy")
-coarse = np.swapaxes(coarse, 0, 2)
-coarse = torch.from_numpy(coarse)[:,None,...].to(device).float()
-fine = np.load(data_folder+"fine_val.npy")
-fine = np.swapaxes(fine, 0, 2)
-fine = torch.from_numpy(fine)[:,None,...].to(device).float()
-
-plt.imshow(coarse[4,0,...].cpu())
-plt.show()
-
-invar = np.load(data_folder+"dem_crop.npy")
-invariant = torch.from_numpy(invar)[None,...].to(device).float()
+# coarse = np.load(data_folder+"coarse_val.npy")
+# coarse = np.swapaxes(coarse, 0, 2)
+# coarse = torch.from_numpy(coarse)[:,None,...].to(device).float()
+# fine = np.load(data_folder+"fine_val.npy")
+# fine = np.swapaxes(fine, 0, 2)
+# fine = torch.from_numpy(fine)[:,None,...].to(device).float()
+# 
+# plt.imshow(coarse[4,0,...].cpu())
+# plt.show()
+# invar = np.load(data_folder+"dem_crop.npy")
+# invariant = torch.from_numpy(invar)[None,...].to(device).float()
 
 cond_fields = xr.open_dataset(data_folder + "coarse_validation.nc", engine="netcdf4")
 fine_fields = xr.open_dataset(data_folder + "fine_validation.nc", engine="netcdf4")
@@ -172,6 +170,19 @@ invariant = torch.from_numpy(invariant.to_array().to_numpy()).to(device).float()
 batchsize = 16
 sample = 5
 invariant = invariant.repeat(batchsize,1,1,1)
+
+coarse_in = coarse[0:batchsize,...].to(device).float()
+gen = G(coarse_in, invariant)
+gen.shape
+del gen
+gen = gen.cpu().detach()
+plt.imshow(gen[0,0,...])
+plt.show()
+plt.close()
+plt.imshow(gen[3,1,...])
+plt.show()
+plt.imshow(fine[3,1,...])
+plt.show()
 
 coarse_in = coarse[sample,...]
 coarse_in = coarse_in.unsqueeze(0).repeat(batchsize,1,1,1)
@@ -188,9 +199,6 @@ real = torch.squeeze(real)
 plt.imshow(gentest.cpu().detach())
 
 gen_out[gen_out > torch.unsqueeze(real, 0)] = -999
-
-
-
 
 plt.imshow(gen_out[3,...].cpu().detach())
 
@@ -218,15 +226,15 @@ allrank = []
 for sample in random:
     print("Processing",sample)
     coarse_in = coarse[sample,...]
-    coarse_in = coarse_in.unsqueeze(0).repeat(batchsize,1,1,1)
+    coarse_in = coarse_in.unsqueeze(0).repeat(batchsize,1,1,1).to(device).float()
 
     gen_out = G(coarse_in, invariant).cpu().detach()
-    for i in range(5):
+    for i in range(24):
         fine_gen = G(coarse_in, invariant)
         gen_out = torch.cat([gen_out,fine_gen.cpu().detach()],0)
         del fine_gen
     
-    real = fine[sample,0,...].cpu()
+    real = fine[sample,0,...]
     #lowerq = torch.quantile(real, 0.1)
     #real[real < torch.quantile(real, 0.5)] = 999 ##just test for high values areas
     #real[real < lowerq] = 999
@@ -247,6 +255,7 @@ for sample in random:
 l2 = np.array([item for sub in allrank for item in sub])
 #np.save("Rank_Hist_Data_Synth_DEM_w10.npy", l2)
 plt.hist(l2)
+plt.show()
 merid = l2
 
 ###plot marginal distributions

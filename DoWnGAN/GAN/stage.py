@@ -17,10 +17,18 @@ import torch
 
 from mlflow.tracking import MlflowClient
 
+<<<<<<< HEAD
 highres_in = False
 toydata = True
 data_folder = "/home/kiridaust/Masters/Data/ToyDataSet/no_small/"
 #data_folder = "/home/kdaust/Masters/ds_humid/"
+=======
+highres_in = True
+toydata = False
+data_folder = "/home/kdaust/Masters/ds_wind/"
+#data_folder = "/home/kiridaust/Masters/Data/processed_data/ds_temp/"
+#data_folder = "/home/kdaust/Masters/SynthReg/"
+>>>>>>> 480ca40b7c34f856f7ab16adc447595d0d4d1443
 #data_folder = "/home/kiridaust/Masters/Data/Synth_DEM/Weight10/"
 
 def load_preprocessed():
@@ -41,7 +49,11 @@ def load_preprocessed():
        fine_test = np.load(data_folder+"fine_test.npy")
        fine_test = np.swapaxes(fine_test, 0, 2)
        #invar = np.load(data_folder+"dem_crop.npy")
+<<<<<<< HEAD
        return coarse_train, fine_train, coarse_test, fine_test, None
+=======
+       return coarse_train, fine_train, coarse_test, fine_test, None#, invar
+>>>>>>> 480ca40b7c34f856f7ab16adc447595d0d4d1443
 
 
 assert torch.cuda.is_available(), "CUDA not available"
@@ -114,7 +126,7 @@ class StageData:
             print("Network dimensions: ")
             print("Fine: ", self.fine_dim_n, "x", self.n_predictands)
             print("Coarse: ", self.coarse_dim_n, "x", self.n_covariates)
-            print("Generator params: ",self.coarse_dim_n,self.fine_dim_n,self.n_covariates,self.n_predictands)
+            #print("Generator params: ",self.coarse_dim_n,self.fine_dim_n,self.n_covariates,self.n_predictands)
             self.critic = Critic(self.coarse_dim_n, self.fine_dim_n, self.n_predictands).to(config.device)
             self.generator = Generator(self.coarse_dim_n, self.n_covariates, self.n_predictands).to(config.device)
 

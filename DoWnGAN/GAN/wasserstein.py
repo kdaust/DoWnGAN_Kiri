@@ -102,7 +102,11 @@ class WassersteinGAN:
             #cont_loss = content_loss(fake_means, fine, device=config.device)
             #print("Variance loss:", var_loss)
             #print("Content loss:", cont_loss)        
+<<<<<<< HEAD
         g_loss = -torch.mean(c_fake) * hp.gamma  + hp.content_lambda * cont_loss #10 * torch.mean(crps)
+=======
+        g_loss = -torch.mean(c_fake) * hp.gamma + hp.content_lambda * torch.mean(crps)
+>>>>>>> 480ca40b7c34f856f7ab16adc447595d0d4d1443
         g_loss.backward()
 
         # Update the generator
