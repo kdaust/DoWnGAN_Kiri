@@ -57,7 +57,7 @@ d2 <- dcast(dat, xax ~ yax, value.var = "Val")
 d2[,xax := NULL]
 meanmat <- as.matrix(d2)
 image(meanmat)
-meanmat <- meanmat + 5
+#meanmat <- meanmat + 5
 
 for(numrast in 1:500){
   if(numrast %% 100 == 0) cat("iteration",numrast,"\n")
@@ -82,11 +82,14 @@ for(numrast in 1:500){
 plot(outrast[[5]])
 farr <- as.array(outrast)
 carr <- as.array(outcoarse)
+farr2 <- (farr - mean(farr))/sd(farr)
+carr2 <- (carr - mean(carr))/sd(carr)
+
 
 library(reticulate)
 np <- import("numpy")
-np$save("../Data/synthetic/no_small/fine_stochastic.npy",farr)
-np$save("../Data/synthetic/no_small/coarse_stochastic.npy",carr)
+np$save("../Data/synthetic/standardised/fine_stochastic.npy",farr2)
+np$save("../Data/synthetic/standardised/coarse_stochastic.npy",carr2)
 
 #dem <- np$load("Data/Synth_DEM/dem_crop.npy")
 image(dem)
@@ -106,7 +109,6 @@ for(numrast in 1:8000){
   d2 <- dcast(dat, xax ~ yax, value.var = "Val")
   d2[,xax := NULL]
   meanmat <- as.matrix(d2)
-  meanmat <- meanmat + 5
   
   distr1 <- mvrnorm(n = nsamp,mu = rep(0,128),Sigma = sig2)
   #distr2 <- mvrnorm(n = nsamp,mu = rep(5,128),Sigma = sig2)
@@ -131,19 +133,22 @@ plot(outrast[[43]])
 plot(outrast[[44]])
 plot(outcoarse[[43]])
 
+
 farr <- as.array(outrast)
+farr2 <- (farr - mean(farr))/sd(farr)
 carr <- as.array(outcoarse)
+carr2 <- (carr - mean(carr))/sd(carr)
 
 library(reticulate)
 np <- import("numpy")
-np$save("../Data/synthetic/no_small/fine_train.npy",farr[,,1:5000])
-np$save("../Data/synthetic/no_small/coarse_train.npy",carr[,,1:5000])
+np$save("../Data/synthetic/standardised/fine_train.npy",farr2[,,1:5000])
+np$save("../Data/synthetic/standardised/coarse_train.npy",carr2[,,1:5000])
 
-np$save("../Data/synthetic/no_small/fine_test.npy",farr[,,5001:7000])
-np$save("../Data/synthetic/no_small/coarse_test.npy",carr[,,5001:7000])
+np$save("../Data/synthetic/standardised/fine_test.npy",farr2[,,5001:7000])
+np$save("../Data/synthetic/standardised/coarse_test.npy",carr2[,,5001:7000])
 
-np$save("../Data/synthetic/no_small/fine_val_reg.npy",farr[,,7001:8000])
-np$save("../Data/synthetic/no_small/coarse_val_reg.npy",carr[,,7001:8000])
+np$save("../Data/synthetic/standardised/fine_val_reg.npy",farr2[,,7001:8000])
+np$save("../Data/synthetic/standardised/coarse_val_reg.npy",carr2[,,7001:8000])
 
 png("Rank_Hists.png",width = 8, height = 4, units = "in", res = 600)
 par(mfrow = c(1,3))

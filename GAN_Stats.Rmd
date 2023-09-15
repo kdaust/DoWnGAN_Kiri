@@ -12,10 +12,10 @@ knitr::opts_chunk$set(echo = FALSE)
 library(reticulate)
 library(ggplot2)
 library(data.table)
-mod_name = "Synthetic, noise inject, no small"
-epoch = "250"
-gen_location <- "../Generators/synthetic_noiseinject_nosmall/"
-data_loc <- "../Data/synthetic/no_small/"
+mod_name = "Wind, 4 covaraties, just content loss"
+epoch = "170"
+gen_location <- "../Generators/wind_stochastic_nocrps_all/"
+data_loc <- "../Data/ds_wind_full/"
 batchsize <- 4
 var_name <- "Wind"
 ```
@@ -31,6 +31,8 @@ import numpy as np
 import torch
 import scipy.stats
 import matplotlib.pyplot as plt
+from matplotlib import colorbar, colors, gridspec
+import random
 #from DoWnGAN.GAN.BourgainEmbed import BourgainSampler
 device = torch.device("cuda:0")
 
@@ -57,32 +59,59 @@ invariant = torch.from_numpy(invariant.to_array().to_numpy())
 # test_data = fine[torch.randint(0,8000,(1,400)),0,...].cpu()
 # test_data = torch.squeeze(test_data)
 # z_sampler = BourgainSampler(test_data)
+def plot_img(img, value_range=(np.log10(0.1), np.log10(100)), extent=None):
+    plt.imshow(img, interpolation='nearest',
+        norm=colors.Normalize(*value_range), extent=extent)
+    plt.gca().tick_params(left=False, bottom=False,
+        labelleft=False, labelbottom=False)
+
 
 ```
 
 ## Example Realisations
 
 ```{python realisations}
-invariant_in = invariant.repeat(int(r.batchsize),1,1,1).to(device).float()
+num_samples=4; num_instances=4; out_fn=None; plot_stride=1; num_frames = 1
 
-sample = 524
-coarse_in = coarse[sample,...]
-coarse_in = coarse_in.unsqueeze(0).repeat(int(r.batchsize),1,1,1).to(device).float()
+num_rows = num_samples*num_frames
+num_cols = 2+num_instances
 
-gen_out = G(coarse_in, invariant_in).cpu().detach()
-#gen_out = G(coarse_in).cpu().detach()
+plt.close()
+figsize = (num_cols*4, num_rows*4)
+plt.figure(figsize=figsize)
 
-plt.imshow(fine[sample,0,...])
-plt.show()
+gs = gridspec.GridSpec(num_rows, num_cols, wspace=0.05, hspace=0.05)
 
-figure, axis = plt.subplots(2, 2)
-  
-# For Sine Function
-axis[0, 0].imshow(gen_out[0,0,...])
-axis[0, 1].imshow(gen_out[1,0,...])
-axis[1, 0].imshow(gen_out[2,0,...])
-axis[1, 1].imshow(gen_out[3,0,...])
-  
+#value_range = batch_gen.decoder.value_range
+
+batchsize = num_instances
+inv_in = invariant.repeat(int(batchsize),1,1,1).to(device).float()
+import random
+random.seed(3.14159)
+
+for s in range(num_samples):
+    sample = random.randint(0,8000)
+    for t in range(num_frames):
+        i = s*num_frames+t
+        plt.subplot(gs[i,0])
+        plot_img(fine[sample,0,...])
+        if(s == 3):
+            plt.xlabel("WRF", fontsize=14)
+        plt.subplot(gs[i,1])
+        plot_img(coarse[sample,0,...])
+        if(s == 3):
+            plt.xlabel("ERA5", fontsize=14)
+        for k in range(num_instances):
+            coarse_in = coarse[sample,...]
+            coarse_in = coarse_in.unsqueeze(0).repeat(int(batchsize),1,1,1).to(device).float()
+
+            gen_out = G(coarse_in, inv_in).cpu().detach()
+            j = 2+k
+            plt.subplot(gs[i,j])
+            plot_img(gen_out[k,0,...]) 
+            if(s == 3):
+                plt.xlabel("Gen {}".format(k+1), fontsize=14)
+
 # Combine all the operations and display
 plt.show()
 ```
@@ -164,15 +193,15 @@ def calc_ralsd(G,dataloader):
     gen_img = []
     real_img = []
     for i, data in enumerate(dataloader):
-        if(i > 100):
+        if(i > 200):
             break
         ##print("running batch ", i)
         #torch.cuda.empty_cache()
         out = G(data[0].to("cuda:0").float(),data[2].to("cuda:0").float())
         #out = G(data[0].to("cuda:0").float())
         #print(data[1][:,0,...].size())
-        real = data[1][:,0,...].cpu().detach()
-        zonal = out[:,0,...].cpu().detach()
+        real = data[1][:,1,...].cpu().detach()
+        zonal = out[:,1,...].cpu().detach()
         gen_img.append(zonal)
         real_img.append(real)
         
@@ -232,11 +261,11 @@ ggplot(datlong, aes(x = variable, y = value, group = variable)) +
 ## Rank Histogram
 
 ```{python rhist}
-random = torch.randint(0, 1000, (30, ))
+random = torch.randint(0, 10000, (80, ))
 invariant_in = invariant.repeat(int(r.batchsize),1,1,1).to(device).float()
 
 allrank = []
-#mp = torch.nn.MaxPool2d(8)
+mp = torch.nn.MaxPool2d(8)
 for sample in random:
     ##print("Processing",sample)
     coarse_in = coarse[sample,...]
@@ -248,12 +277,14 @@ for sample in random:
         gen_out = torch.cat([gen_out,fine_gen.cpu().detach()],0)
         del fine_gen
     
-    real = torch.squeeze((fine[sample,0,...]))
-    fake = torch.squeeze((gen_out[:,0,...]))
+    real = torch.squeeze(mp(fine[sample,1,...].unsqueeze(0)))
+    fake = torch.squeeze(mp(gen_out[:,1,...].unsqueeze(1)))
+    # real = torch.squeeze((fine[sample,0,...]))
+    # fake = torch.squeeze((gen_out[:,0,...]))
 
     rankvals = []
-    for i in range(128):
-        for j in range(128):
+    for i in range(16):
+        for j in range(16):
             obs = real[i,j].numpy()
             ensemble = fake[:,i,j].flatten().numpy()
             allvals = np.append(ensemble,obs)
@@ -265,10 +296,10 @@ l2 = np.array([item for sub in allrank for item in sub])
 ```
 
 ```{python}
-plt.hist(l2, bins=10, density=True)
-plt.xlabel("Rank")
-plt.ylabel("Density")
-plt.savefig('CRPS_Temp_RankHist.png',dpi = 600)
+# plt.hist(l2, bins=10, density=True)
+# plt.xlabel("Rank")
+# plt.ylabel("Density")
+# plt.savefig('CRPS_Temp_RankHist.png',dpi = 600)
 ```
 
 ```{r histgraph}
