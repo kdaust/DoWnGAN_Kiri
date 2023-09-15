@@ -3,15 +3,14 @@ import torch
 import mlflow
 from matplotlib import pyplot as plt
 from matplotlib import colorbar, colors, gridspec
-import random
 
 device = torch.device("cuda:0")
-gen_location = "../Generators/wind_stochastic_crps_all/"
+gen_location = "../Generators/real_data/freqsep_noisecov/"
 G = mlflow.pytorch.load_model(gen_location)
 
 import xarray as xr
-batchsize = 4
-data_folder = "../Data/ds_wind_full/"
+batchsize = 16
+data_folder = "../Data/processed_data/ds_wind_full/"
 cond_fields = xr.open_dataset(data_folder + "coarse_test.nc", engine="netcdf4")
 fine_fields = xr.open_dataset(data_folder + "fine_test.nc", engine="netcdf4")
 coarse = torch.from_numpy(cond_fields.to_array().to_numpy()).transpose(0, 1)
@@ -29,34 +28,42 @@ for j in random:
   coarse_in = coarse[j,...]
   coarse_in = coarse_in.unsqueeze(0).repeat(int(batchsize),1,1,1).to(device).float()
   gen_out = G(coarse_in, inv_in).cpu().detach()
-  for i in range(12):
+  for i in range(2):
       fine_gen = G(coarse_in,inv_in)
       gen_out = torch.cat([gen_out,fine_gen.cpu().detach()],0)
       del fine_gen
   all_gens.append(gen_out)
 
+noisecov_fs = torch.cat(all_gens, 0)
+torch.save(noisecov_fs, "Generated_noisecov_all.pt")
 no_crps_allgen = torch.cat(all_gens, 0)
 torch.save(no_crps_allgen, "Generated_nocrps_all.pt")
 crps_allgen = torch.cat(all_gens, 0)
 torch.save(crps_allgen, "Generated_crps_all.pt")
 
+noisecov_fs = noisecov_fs[0:39200,...]
 c_dif = []
 noc_dif = []
+nc_dif = []
 for i in range(128):
   for j in range(128):
     zonal_gen_nocrps = no_crps_allgen[:,1,i,j].numpy()
-    zonal_gen = crps_allgen[:,1,i,j].numpy()    
+    zonal_gen = crps_allgen[:,1,i,j].numpy()
+    zonal_nc = noisecov_fs[:,1,i,j].numpy()   
     zonal_real = fine[:,1,i,j].numpy()
     crps = np.quantile(zonal_gen, 0.999)
     nocrps = np.quantile(zonal_gen_nocrps, 0.999)
+    noisecov = np.quantile(zonal_nc, 0.999)
     real = np.quantile(zonal_real, 0.999)
     c_dif.append(real - crps)
     noc_dif.append(real - nocrps)
+    nc_dif.append(real - noisecov)
 
 cdif = np.array(c_dif)
 nocdif = np.array(noc_dif)
+regdif = np.array(nc_dif)
 import seaborn as sns
-sns.boxplot([cdif,nocdif])
+sns.boxplot([cdif,nocdif,regdif])
 plt.show()
 ##make nice grid figure - stolen from Leinonen
 def plot_img(img, value_range=(np.log10(0.1), np.log10(100)), extent=None):
