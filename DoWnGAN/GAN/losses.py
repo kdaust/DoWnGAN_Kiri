@@ -47,6 +47,16 @@ def crps_empirical(pred, truth): ##adapted from https://docs.pyro.ai/en/stable/_
 def wass_loss(real, fake, device):
     return real - fake
 
+def kurtosis_internal(x):
+        mean = x.mean()
+        diffs = x - mean
+        var = torch.mean(torch.pow(diffs, 2.0))
+        std = torch.pow(var, 0.5)
+        zscores = diffs / std
+        return (torch.mean(torch.pow(zscores, 4.0)))
+
+def kurtosis(fake, real):
+    return((kurtosis_internal(fake) - kurtosis_internal(real))**2)
 
 def SSIM_Loss(x, y, device, reduction="mean", window_size=11):
     """Return MS_SSIM

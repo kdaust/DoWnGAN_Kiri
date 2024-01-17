@@ -70,6 +70,35 @@ class DenseResidualBlock(nn.Module):
         out = out.mul(self.res_scale) + x
         out.add_(noiseScale)
         return out
+    
+class DenseResidualBlockNoNoise(nn.Module):
+    """
+    The core module of paper: (Residual Dense Network for Image Super-Resolution, CVPR 18)
+    """
+
+    def __init__(self, filters, res_scale=0.8):
+        super(DenseResidualBlockNoNoise, self).__init__()
+        self.res_scale = res_scale
+
+        def block(in_features, non_linearity=True):
+            layers = [nn.Conv2d(in_features, filters, 3, 1, 1, bias=True)]
+            if non_linearity:
+                layers += [nn.LeakyReLU()]
+            return nn.Sequential(*layers)
+
+        self.b1 = block(in_features=1 * filters)
+        self.b2 = block(in_features=2 * filters)
+        self.b3 = block(in_features=3 * filters)
+        self.b4 = block(in_features=4 * filters)
+        self.b5 = block(in_features=5 * filters, non_linearity=False)
+        self.blocks = [self.b1, self.b2, self.b3, self.b4, self.b5]
+
+    def forward(self, x):
+        inputs = x
+        for block in self.blocks:
+            out = block(inputs)
+            inputs = torch.cat([inputs, out], 1)
+        return out.mul(self.res_scale) + x
 
 class ResidualInResidualDenseBlock(nn.Module):
     def __init__(self, filters, resolution = 16, res_scale=0.2, noise_sd = 5):
@@ -77,6 +106,17 @@ class ResidualInResidualDenseBlock(nn.Module):
         self.res_scale = res_scale
         self.dense_blocks = nn.Sequential(
             DenseResidualBlock(filters, resolution=resolution, noise_sd=noise_sd), DenseResidualBlock(filters,resolution=resolution,noise_sd=noise_sd), DenseResidualBlock(filters,resolution=resolution,noise_sd=noise_sd)
+        )
+
+    def forward(self, x):
+        return self.dense_blocks(x).mul(self.res_scale) + x
+    
+class ResidualInResidualDenseBlockNoNoise(nn.Module):
+    def __init__(self, filters, res_scale=0.2):
+        super(ResidualInResidualDenseBlockNoNoise, self).__init__()
+        self.res_scale = res_scale
+        self.dense_blocks = nn.Sequential(
+            DenseResidualBlockNoNoise(filters), DenseResidualBlockNoNoise(filters), DenseResidualBlockNoNoise(filters)
         )
 
     def forward(self, x):
@@ -113,7 +153,7 @@ class Generator(nn.Module):
         self.conv3 = nn.Sequential(
             #nn.Conv2d(fine_dims + filters, fine_dims + filters, kernel_size=1, stride=1, padding=1), ##pointwise convolution
             nn.Conv2d(filters*2, filters + 1, kernel_size=3, stride=1, padding=1),
-            ResidualInResidualDenseBlock(filters + 1,resolution=fine_dims, noise_sd=1),
+            ResidualInResidualDenseBlockNoNoise(filters + 1),
             nn.LeakyReLU(),
             nn.Conv2d(filters + 1, n_predictands, kernel_size=3, stride=1, padding=1),
         )
@@ -121,11 +161,7 @@ class Generator(nn.Module):
     def forward(self, x_coarse, x_fine):
         out = self.LR_pre(x_coarse)
         outc = self.upsampling(out)
-        #print(outc.size())
-
         outf = self.HR_pre(x_fine)
         out = torch.cat((outc,outf),1)
-        # noise = torch.normal(0,2,size = [outf.shape[0], 1, self.fine_res, self.fine_res], device=outf.device)
-        # out = torch.cat((outc,outf,noise),1)
         out = self.conv3(out)
         return out

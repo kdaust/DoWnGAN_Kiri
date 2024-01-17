@@ -35,23 +35,10 @@ class WassersteinGAN:
             fake = self.G(coarse, invariant) ##generate fake image from generator
         else:
             fake = self.G(coarse)
-        
-        if(freq_sep):
-            fake_low = hp.low(hp.rf(fake))
-            real_low = hp.low(hp.rf(fine))
+        c_real = self.C(fine,invariant,coarse) ##make prediction for real image
+        c_fake = self.C(fake,invariant,coarse) ##make prediction for generated image
 
-            fake_high = fake - fake_low
-            real_high = fine - real_low
-
-            c_real = self.C(real_high)
-            c_fake = self.C(fake_high)
-
-            gradient_penalty = hp.gp_lambda * self._gp(real_high, fake_high, self.C)
-        else:
-           c_real = self.C(fine) ##make prediction for real image
-           c_fake = self.C(fake) ##make prediction for generated image
-
-           gradient_penalty = hp.gp_lambda * self._gp(fine, fake, self.C) 
+        gradient_penalty = hp.gp_lambda * self._gp(fine, fake, self.C, coarse, invariant) 
             
         # Zero the gradients
         self.C_optimizer.zero_grad()
@@ -82,27 +69,34 @@ class WassersteinGAN:
             fake_low = hp.low(hp.rf(fake))
             real_low = hp.low(hp.rf(fine))
 
-            fake_high = fake - fake_low
-            c_fake = self.C(fake_high)
+            #fake_high = fake - fake_low
+            c_fake = self.C(fake,invariant,coarse)
             cont_loss = content_loss(fake_low, real_low, device=config.device)
         else: ##stochastic mean
-            c_fake = self.C(fake) ## wasserstein distance
-            all_crps = []
-            #fake_li = []
-            n_realisation = 6
+            c_fake = self.C(fake,invariant,coarse) ## wasserstein distance
+            # q_fake = torch.quantile(fake, 0.999)
+            # q_real = torch.quantile(fine, 0.999)
+            # q_loss = (q_fake - q_real)**2
+            #kurt_loss = kurtosis(fake, fine)
+            #all_crps = []
+            fake_li = []
+            n_realisation = 5
             for img in range(coarse.shape[0]):
                 coarse_rep = coarse[img,...].unsqueeze(0).repeat(n_realisation,1,1,1) ##same number as batchsize for now
                 fake_stoch = self.G(coarse_rep,invariant[0:n_realisation,...])
-                #fake_li.append(torch.mean(fake_stoch,0))
-                all_crps.append(crps_empirical(fake_stoch, fine[img,...])) ##calculate crps for each image
+                fake_li.append(torch.mean(fake_stoch,0))
+                #all_crps.append(crps_empirical(fake_stoch, fine[img,...])) ##calculate crps for each image
                 del fake_stoch
             
-            #fake_means = torch.stack(fake_li)
-            crps = torch.stack(all_crps)
-            #cont_loss = content_loss(fake_means, fine, device=config.device)
+            fake_means = torch.stack(fake_li)
+            #crps = torch.stack(all_crps)
+            cont_loss = content_loss(fake_means, fine, device=config.device)
             #print("Variance loss:", var_loss)
             #print("Content loss:", cont_loss)        
-        g_loss = -torch.mean(c_fake) * hp.gamma + hp.content_lambda * torch.mean(crps)
+        
+        g_loss = -torch.mean(c_fake) * hp.gamma + hp.content_lambda * cont_loss
+        #g_loss = -torch.mean(c_fake) * hp.gamma + hp.content_lambda * torch.mean(crps)
+        
         g_loss.backward()
 
         # Update the generator
@@ -110,7 +104,7 @@ class WassersteinGAN:
 
 
 
-    def _gp(self, real, fake, critic):
+    def _gp(self, real, fake, critic, coarse, invariant):
         current_batch_size = real.size(0)
 
         # Calculate interpolation
@@ -120,7 +114,7 @@ class WassersteinGAN:
         interpolated = alpha * real.data + (1 - alpha) * fake.data
 
         # Calculate probability of interpolated examples
-        critic_interpolated = critic(interpolated)
+        critic_interpolated = critic(interpolated, invariant, coarse)
 
         # Calculate gradients of probabilities with respect to examples
         gradients = torch.autograd.grad(
@@ -140,7 +134,7 @@ class WassersteinGAN:
         gradients_norm = torch.sqrt(torch.sum(gradients ** 2, dim=1) + 1e-12)
 
         # Return gradient penalty
-        return hp.gp_lambda * torch.mean((gradients_norm - 1) ** 2)
+        return torch.mean((gradients_norm - 1) ** 2)
 
 
     def _train_epoch(self, dataloader, testdataloader, epoch):
@@ -166,7 +160,7 @@ class WassersteinGAN:
             self._critic_train_iteration(coarse, fine, invariant)
 
             if self.num_steps%hp.critic_iterations == 0:
-                self._generator_train_iteration(coarse, fine, invariant,i)
+                self._generator_train_iteration(coarse, fine, invariant, epoch)
 
             # Track train set metrics
             train_metrics = gen_batch_and_log_metrics(

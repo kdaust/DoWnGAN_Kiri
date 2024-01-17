@@ -58,8 +58,8 @@ def gen_batch_and_log_metrics(G, C, coarse, real, invariant, d):
     
     # fake_pac = torch.reshape(fake, (int(fake.shape[0]/4),int(fake.shape[1]*4),fake.shape[2],fake.shape[2]))
     # real_pac = torch.reshape(real, (int(fake.shape[0]/4),int(fake.shape[1]*4),fake.shape[2],fake.shape[2]))
-    creal = torch.mean(C(real)).detach()
-    cfake = torch.mean(C(fake)).detach()
+    creal = torch.mean(C(real,invariant,coarse)).detach()
+    cfake = torch.mean(C(fake,invariant,coarse)).detach()
 
     for key in hp.metrics_to_calculate.keys():
         if key == "Wass":

@@ -70,9 +70,10 @@ class ResidualInResidualDenseBlock(nn.Module):
     
 class Generator(nn.Module):
     # coarse_dim_n, fine_dim_n, n_covariates, n_predictands
-    def __init__(self, filters, fine_dims, channels_coarse, channels_invariant, n_predictands=2, num_res_blocks=16, num_res_blocks_fine = 4, num_upsample=3):
+    def __init__(self, filters, fine_dims, channels_coarse, channels_invariant, n_predictands=2, num_res_blocks=14, num_res_blocks_fine = 2, num_upsample=3):
         super(Generator, self).__init__()
         self.fine_res = fine_dims
+        channels_coarse = channels_coarse + 1 ##for noise
         # First layer
         self.conv1 = nn.Conv2d(channels_coarse, filters, kernel_size=3, stride=1, padding=1)
         self.conv1f = nn.Conv2d(channels_invariant, filters, kernel_size=3, stride=1, padding=1)
@@ -102,6 +103,8 @@ class Generator(nn.Module):
         )
         
     def forward(self, x_coarse, x_fine):
+        noise = torch.normal(0,1,size = [x_coarse.shape[0], 1, x_coarse.shape[2], x_coarse.shape[3]], device=x_coarse.device)
+        x_coarse = torch.cat([x_coarse,noise],1)
         out = self.LR_pre(x_coarse)
         outc = self.upsampling(out)
         outf = self.HR_pre(x_fine)

@@ -22,7 +22,7 @@ def gen_grid_images(G, coarse, invariant, real, epoch, train_test):
     fake = G(coarse[random, ...].to(config.device), invariant[random,...].to(config.device))
     
     coarse = torchvision.utils.make_grid(
-        coarse[random, ...],
+        coarse[random, 7, ...],
         nrow=5
     )[0, ...]
 
