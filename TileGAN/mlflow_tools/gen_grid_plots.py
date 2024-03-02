@@ -4,27 +4,9 @@ import matplotlib.pyplot as plt
 import torchvision
 import DoWnGAN.config.hyperparams as hp
 from DoWnGAN.config import config
+from DoWnGAN.helpers.blendtiles import _combine_tile
+import random
 import mlflow
-
-def _comb_lr(a,b):
-    a_overlap = a[:,:,:,-16:]
-    b_overlap = b[:,:,:,0:16]
-    avg_overlap = (a_overlap + b_overlap)/2
-    comb = torch.cat([a[:,:,:,:-16],avg_overlap,b[:,:,:,16:]], dim = 3)
-    return comb
-    
-def _comb_tb(top, bottom):
-    t_overlap = top[:,:,-16:,:]
-    b_overlap = bottom[:,:,0:16,:]
-    tb_avg = (t_overlap + b_overlap)/2
-    res = torch.cat([top[:,:,:-16,:], tb_avg, bottom[:,:,16:,:]], dim = 2)
-    return(res)
-
-def _combine_tile(g_list):
-    top = _comb_lr(g_list[0],g_list[1])
-    bottom = _comb_lr(g_list[2],g_list[3])
-    res = _comb_tb(top,bottom)
-    return(res)
 
 def gen_grid_images(G, c_list, i_list, coarse, fine, epoch, train_test):
     """
@@ -34,28 +16,29 @@ def gen_grid_images(G, c_list, i_list, coarse, fine, epoch, train_test):
         fake (torch.Tensor): The fake input.
         real (torch.Tensor): The real input.
     """
-    torch.manual_seed(3.14)
-    random = torch.randint(0, hp.batch_size, (5, ))
-    fake_out = [G(c.to(config.device),i.to(config.device)).detach() for (c, i) in zip(c_list,i_list)]    
+    
+    seed = random.randint(0,1000000)
+    fake_out = [G(c.to(config.device),i.to(config.device),seed).detach() for (c, i) in zip(c_list,i_list)]    
     fake = _combine_tile(fake_out) ##stich together
     
+    rand_idx = torch.randint(0, hp.batch_size, (5, ))
     coarse = torchvision.utils.make_grid(
-        coarse[random, ...],
+        coarse[rand_idx, ...],
         nrow=5
     )[0, ...]
 
     fake = torchvision.utils.make_grid(
-        fake,
+        fake[rand_idx, ...],
         nrow=5
     )[0, ...]
 
     real = torchvision.utils.make_grid(
-        real[random, ...],
+        fine[rand_idx, ...],
         nrow=5
     )[0, ...]
 
 
-    fig = plt.figure(figsize=(20, 20))
+    fig = plt.figure(figsize=(20, 15))
     fig.suptitle("Training Samples")
 
     # Plot the coarse and fake samples
@@ -67,14 +50,14 @@ def gen_grid_images(G, c_list, i_list, coarse, fine, epoch, train_test):
     ax.imshow(coarse.cpu().detach(), origin="lower")
 
     # Generated fake
-    subfigs[1].suptitle("Generated Temperature")
+    subfigs[1].suptitle("Generated")
     ax = subfigs[1].subplots(1, 1)
     ax.imshow(fake.cpu().detach(), origin="lower")
 
     # Ground Truth
     subfigs[2].suptitle("WRF")
     ax = subfigs[2].subplots(1, 1)
-    ax.imshow(fine.cpu().detach(), origin="lower")
+    ax.imshow(real.cpu().detach(), origin="lower")
 
     if epoch % 10 == 0:
         plt.savefig(f"{mlflow.get_artifact_uri()}/{train_test}_{epoch}.png")

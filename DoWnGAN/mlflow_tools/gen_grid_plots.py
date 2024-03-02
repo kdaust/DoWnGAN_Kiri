@@ -22,19 +22,19 @@ def gen_grid_images(G, coarse, invariant, real, epoch, train_test):
     fake = G(coarse[random, ...].to(config.device), invariant[random,...].to(config.device))
     
     coarse = torchvision.utils.make_grid(
-        coarse[random, 7, ...],
+        coarse[random, ...],
         nrow=5
-    )[0, ...]
+    )[4, ...]
 
     fake = torchvision.utils.make_grid(
         fake,
         nrow=5
-    )[0, ...]
+    )[4, ...]
 
     real = torchvision.utils.make_grid(
         real[random, ...],
         nrow=5
-    )[0, ...]
+    )[4, ...]
 
 
     fig = plt.figure(figsize=(20, 15))
@@ -49,7 +49,7 @@ def gen_grid_images(G, coarse, invariant, real, epoch, train_test):
     ax.imshow(coarse.cpu().detach(), origin="lower")
 
     # Generated fake
-    subfigs[1].suptitle("Generated Temperature")
+    subfigs[1].suptitle("Generated")
     ax = subfigs[1].subplots(1, 1)
     ax.imshow(fake.cpu().detach(), origin="lower")
 

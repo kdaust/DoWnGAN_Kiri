@@ -1,6 +1,6 @@
 # Begin - load the data and initiate training
 # Defines the hyperparameter and constants configurationsimport gc
-from DoWnGAN.networks.full_noise_generator_temperature import Generator
+from DoWnGAN.networks.generator_stochastic_tilegan import Generator
 from DoWnGAN.networks.critic_covariates import Critic
 from DoWnGAN.GAN.dataloader import train_dataloader
 import DoWnGAN.mlflow_tools.mlflow_utils as mlf 
@@ -18,10 +18,7 @@ from mlflow.tracking import MlflowClient
 highres_in = True
 toydata = False
 rotation = False
-data_folder = "/home/kdaust/Masters/spat_gen/"
-#data_folder = "/home/kiridaust/Masters/Data/processed_data/ds_temp/"
-#data_folder = "/home/kdaust/Masters/SynthReg/"
-#data_folder = "/home/kdaust/Masters/SynthDEM/W01/"
+data_folder = "/home/kdaust/Masters/tiled_t9/"
 
 assert torch.cuda.is_available(), "CUDA not available"
 torch.cuda.empty_cache()
@@ -31,12 +28,13 @@ torch.cuda.empty_cache()
 
 # Convert to tensors
 print("Loading region into memory...")
-coarse_paths = [data_folder + "coarse_g1.pt",data_folder + "coarse_g2.pt",data_folder + "coarse_g3.pt",data_folder + "coarse_g4.pt"]
-invar_paths = [data_folder + "invar_g1.pt",data_folder + "invar_g2.pt",data_folder + "invar_g3.pt",data_folder + "invar_g4.pt"]
-coarse_tiles = [torch.load(x).to(config.device).float() for x in coarse_paths]
-invar_tiles = [torch.load(x).to(config.device).float() for x in invar_paths]
+invar_paths = ["inv1.pt","inv2.pt","inv3.pt","inv4.pt","inv5.pt","inv6.pt","inv7.pt","inv8.pt","inv9.pt"]
+coarse_paths = ["coarse1.pt","coarse2.pt","coarse3.pt","coarse4.pt","coarse5.pt","coarse6.pt","coarse7.pt","coarse8.pt","coarse9.pt"]
+
+coarse_tiles = [torch.load(data_folder + x).to(config.device).float() for x in coarse_paths]
+invar_tiles = [torch.load(data_folder + x).unsqueeze(0).to(config.device).float() for x in invar_paths]
 coarse_full = torch.load(data_folder + "coarse_full.pt").to(config.device).float()
-invar_full = torch.load(data_folder + "invar_full.pt").to(config.device).float()
+invar_full = torch.load(data_folder + "inv_full.pt").unsqueeze(0).to(config.device).float()
 fine_full = torch.load(data_folder + "fine_full.pt").to(config.device).float()
 
 print("Data successfully loaded...")

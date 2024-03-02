@@ -1,10 +1,12 @@
 from DoWnGAN.GAN.stage import StageData
 import DoWnGAN.config.hyperparams as hp
+from DoWnGAN.helpers.blendtiles import _combine_tile
 from DoWnGAN.config import config
 from DoWnGAN.GAN.losses import content_loss, crps_empirical
 from DoWnGAN.mlflow_tools.gen_grid_plots import gen_grid_images
 from DoWnGAN.mlflow_tools.mlflow_epoch import post_epoch_metric_mean, gen_batch_and_log_metrics, initialize_metric_dicts, log_network_models
 import torch
+import random
 from torch.autograd import grad as torch_grad
 
 import mlflow
@@ -31,8 +33,9 @@ class WassersteinGAN:
             coarse (torch.Tensor): The coarse input.
             fine (torch.Tensor): The fine input.
         """
-        fake_out = [self.G(c.to(config.device),i.to(config.device)) for (c, i) in zip(coarse_list,invar_list)]    
-        fake = self._combine_tile(fake_out) ##stich together
+        seed = random.randint(0,1000000)
+        fake_out = [self.G(c.to(config.device),i.to(config.device),seed) for (c, i) in zip(coarse_list,invar_list)]    
+        fake = _combine_tile(fake_out) ##stich together
 
         c_real = self.C(fine,invariant,coarse) ##make prediction for real image
         c_fake = self.C(fake,invariant,coarse) ##make prediction for generated image
@@ -49,25 +52,25 @@ class WassersteinGAN:
         # Update the critic
         self.C_optimizer.step()
 
-    def _comb_lr(self, a,b):
-        a_overlap = a[:,:,:,-16:]
-        b_overlap = b[:,:,:,0:16]
-        avg_overlap = (a_overlap + b_overlap)/2
-        comb = torch.cat([a[:,:,:,:-16],avg_overlap,b[:,:,:,16:]], dim = 3)
-        return comb
+    # def _comb_lr(self, a,b):
+    #     a_overlap = a[:,:,:,-16:]
+    #     b_overlap = b[:,:,:,0:16]
+    #     avg_overlap = (a_overlap + b_overlap)/2
+    #     comb = torch.cat([a[:,:,:,:-16],avg_overlap,b[:,:,:,16:]], dim = 3)
+    #     return comb
     
-    def _comb_tb(self, top, bottom):
-        t_overlap = top[:,:,-16:,:]
-        b_overlap = bottom[:,:,0:16,:]
-        tb_avg = (t_overlap + b_overlap)/2
-        res = torch.cat([top[:,:,:-16,:], tb_avg, bottom[:,:,16:,:]], dim = 2)
-        return(res)
+    # def _comb_tb(self, top, bottom):
+    #     t_overlap = top[:,:,-16:,:]
+    #     b_overlap = bottom[:,:,0:16,:]
+    #     tb_avg = (t_overlap + b_overlap)/2
+    #     res = torch.cat([top[:,:,:-16,:], tb_avg, bottom[:,:,16:,:]], dim = 2)
+    #     return(res)
     
-    def _combine_tile(self, g_list):
-        top = self._comb_lr(g_list[0],g_list[1])
-        bottom = self._comb_lr(g_list[2],g_list[3])
-        res = self._comb_tb(top,bottom)
-        return(res)
+    # def _combine_tile(self, g_list):
+    #     top = self._comb_lr(g_list[0],g_list[1])
+    #     bottom = self._comb_lr(g_list[2],g_list[3])
+    #     res = self._comb_tb(top,bottom)
+    #     return(res)
 
 
     def _generator_train_iteration(self, coarse_list, invar_list, coarse, fine, invariant, iteration):
@@ -78,9 +81,9 @@ class WassersteinGAN:
             fine (torch.Tensor): The fine input.
         """
         self.G_optimizer.zero_grad()
-        
-        fake_out = [self.G(c.to(config.device),i.to(config.device)) for (c, i) in zip(coarse_list,invar_list)]    
-        fake = self._combine_tile(fake_out) ##stich together
+        seed = random.randint(0,1000000)
+        fake_out = [self.G(c.to(config.device),i.to(config.device),seed) for (c, i) in zip(coarse_list,invar_list)]    
+        fake = _combine_tile(fake_out) ##stich together
 
         fake_low = hp.low(hp.rf(fake))
         real_low = hp.low(hp.rf(fine))

@@ -74,28 +74,20 @@ class WassersteinGAN:
             cont_loss = content_loss(fake_low, real_low, device=config.device)
         else: ##stochastic mean
             c_fake = self.C(fake,invariant,coarse) ## wasserstein distance
-            # q_fake = torch.quantile(fake, 0.999)
-            # q_real = torch.quantile(fine, 0.999)
-            # q_loss = (q_fake - q_real)**2
-            #kurt_loss = kurtosis(fake, fine)
-            #all_crps = []
-            fake_li = []
+            all_crps = []
+            #fake_li = []
             n_realisation = 5
             for img in range(coarse.shape[0]):
                 coarse_rep = coarse[img,...].unsqueeze(0).repeat(n_realisation,1,1,1) ##same number as batchsize for now
                 fake_stoch = self.G(coarse_rep,invariant[0:n_realisation,...])
-                fake_li.append(torch.mean(fake_stoch,0))
-                #all_crps.append(crps_empirical(fake_stoch, fine[img,...])) ##calculate crps for each image
+                #fake_li.append(torch.mean(fake_stoch,0))
+                all_crps.append(crps_empirical(fake_stoch, fine[img,...])) ##calculate crps for each image
                 del fake_stoch
             
-            fake_means = torch.stack(fake_li)
-            #crps = torch.stack(all_crps)
-            cont_loss = content_loss(fake_means, fine, device=config.device)
-            #print("Variance loss:", var_loss)
-            #print("Content loss:", cont_loss)        
+            crps = torch.stack(all_crps)
         
-        g_loss = -torch.mean(c_fake) * hp.gamma + hp.content_lambda * cont_loss
-        #g_loss = -torch.mean(c_fake) * hp.gamma + hp.content_lambda * torch.mean(crps)
+        #g_loss = -torch.mean(c_fake) * hp.gamma + hp.content_lambda * cont_loss
+        g_loss = -torch.mean(c_fake) * hp.gamma + hp.content_lambda * torch.mean(crps)
         
         g_loss.backward()
 
@@ -146,8 +138,8 @@ class WassersteinGAN:
         """
         print(80*"=")
         ##print("Wasserstein GAN")
-        train_metrics = initialize_metric_dicts({})
-        test_metrics = initialize_metric_dicts({})
+        train_metrics = initialize_metric_dicts({},5)
+        test_metrics = initialize_metric_dicts({},5)
 
         for i,data in enumerate(dataloader):
             coarse = data[0].to(config.device)
@@ -173,7 +165,7 @@ class WassersteinGAN:
             )
             self.num_steps += 1
 
-        if epoch % 10 == 0:
+        if epoch % 5 == 0:
             # Take mean of all batches and log to file
             with torch.no_grad():
                 post_epoch_metric_mean(train_metrics, "train")
@@ -184,7 +176,7 @@ class WassersteinGAN:
                     invbatch = -1
                 gen_grid_images(self.G, cbatch, invbatch, rbatch, epoch, "train")
     
-                test_metrics = initialize_metric_dicts({})
+                test_metrics = initialize_metric_dicts({}, rbatch.shape[1])
                 for data in testdataloader:
                     coarse = data[0].to(config.device)
                     fine = data[1].to(config.device)
@@ -223,28 +215,3 @@ class WassersteinGAN:
         self.num_steps = 0
         for epoch in range(hp.epochs):
             self._train_epoch(dataloader, testdataloader, epoch)
-
-
-# hist_vals = torch.zeros(6, device=config.device, requires_grad=True)
-# expect_vals = torch.full([6],(fine.shape[-1]**2 * fine.shape[0]) / 6, device=config.device,requires_grad=True) ##multiply by batchsize
-# for img in range(coarse.shape[0]):
-#     coarse_rep = coarse[img,...].unsqueeze(0).repeat(5,1,1,1) ##same number as batchsize for now
-#     fake_stoch = self.G(coarse_rep,invariant[0:5,...])
-#     fake_mean = torch.mean(fake_stoch,0) ##now just one image for each predictand
-#     fake_li.append(fake_mean)
-#     fake_stoch = torch.cat((fine[img,...].unsqueeze(0),fake_stoch),0)
-#     rank = torch.argsort(fake_stoch, dim = 0)
-#     rank = rank[0,...]
-#     hist_temp = torch.histc(rank, bins = 6)
-#     hist_vals = torch.add(hist_vals, hist_temp)
-#     del rank
-#     del hist_temp
-#     del coarse_rep
-#     del fake_stoch
-#     del fake_mean
-#     #torch.cuda.empty_cache()
-# #stoch_var_mean = torch.stack(fake_var)
-# #var_diff = torch.abs(stoch_var_mean - batch_var)
-# #var_loss = torch.mean(var_diff)
-# err = (expect_vals - hist_vals)/hist_vals
-# rh_err = torch.sum(err**2) #sum of squared error

@@ -17,10 +17,8 @@ from mlflow.tracking import MlflowClient
 
 highres_in = True
 toydata = False
-data_folder = "/home/kdaust/Masters/ds_precip_v2/"
-#data_folder = "/home/kiridaust/Masters/Data/processed_data/ds_temp/"
-#data_folder = "/home/kdaust/Masters/SynthReg/"
-#data_folder = "/home/kdaust/Masters/SynthDEM/W01/"
+rotation = False
+data_folder = "/home/kdaust/Masters/ds_all_vars/"
 
 def load_preprocessed():
     if(not toydata):
@@ -28,7 +26,6 @@ def load_preprocessed():
         fine_train = xr.open_dataset(data_folder + "fine_train.nc", engine="netcdf4")
         coarse_test = xr.open_dataset(data_folder + "coarse_test.nc", engine="netcdf4")
         fine_test = xr.open_dataset(data_folder + "fine_test.nc", engine="netcdf4")
-        #invarient = xr.open_dataset(data_folder + "DEM_Crop.nc", engine="netcdf4")
         invarient = torch.load(data_folder + "hr_topo.pt").unsqueeze(0)
         return coarse_train, fine_train, coarse_test, fine_test, invarient
     else:
@@ -47,23 +44,17 @@ def load_preprocessed():
 assert torch.cuda.is_available(), "CUDA not available"
 torch.cuda.empty_cache()
 # Load dataset
-coarse_train, fine_train, coarse_test, fine_test, invarient = load_preprocessed()
+coarse_train, fine_train, coarse_test, fine_test, invariant = load_preprocessed()
 
 
 # Convert to tensors
 print("Loading region into memory...")
 if(not toydata):
-    # coarse_train = torch.add(torch.from_numpy(coarse_train.to_array().to_numpy()).transpose(0, 1).to(config.device).float(),15)
-    # fine_train = torch.add(torch.from_numpy(fine_train.to_array().to_numpy()).transpose(0, 1).to(config.device).float(),15)
-    # coarse_test = torch.add(torch.from_numpy(coarse_test.to_array().to_numpy()).transpose(0, 1).to(config.device).float(),15)
-    # fine_test = torch.add(torch.from_numpy(fine_test.to_array().to_numpy()).transpose(0, 1).to(config.device).float(),15)
-    # invarient = torch.add(torch.from_numpy(invarient.to_array().to_numpy().squeeze(0)).to(config.device).float(),7)
-
-    coarse_train = torch.from_numpy(coarse_train.to_array().to_numpy()).transpose(0, 1).to(config.device).float()
-    fine_train = torch.from_numpy(fine_train.to_array().to_numpy()).transpose(0, 1).to(config.device).float()
-    coarse_test = torch.from_numpy(coarse_test.to_array().to_numpy()).transpose(0, 1).to(config.device).float()
-    fine_test = torch.from_numpy(fine_test.to_array().to_numpy()).transpose(0, 1).to(config.device).float()
-    invarient = invarient.to(config.device).float()
+    coarse_train = torch.from_numpy(coarse_train.to_array().to_numpy()).transpose(0, 1)
+    fine_train = torch.from_numpy(fine_train.to_array().to_numpy()).transpose(0, 1)
+    coarse_test = torch.from_numpy(coarse_test.to_array().to_numpy()).transpose(0, 1)
+    fine_test = torch.from_numpy(fine_test.to_array().to_numpy()).transpose(0, 1)
+    invariant = invariant.to(config.device)
 
     ##for precip:
     # which_zero = torch.sum(fine_train, dim = (1,2,3))
@@ -75,17 +66,11 @@ if(not toydata):
     # coarse_test = coarse_test[which_zero > 0.1,...]
     #invarient = torch.from_numpy(invarient.to_array().to_numpy().squeeze(0)).to(config.device).float()
     
-else:
-    coarse_train = torch.from_numpy(coarse_train)[:,None,...].to(config.device).float()
-    coarse_test = torch.from_numpy(coarse_test)[:,None,...].to(config.device).float()
-    # noise_train = torch.normal(0,1,size = [coarse_train.shape[0], 1, coarse_train.shape[2],coarse_train.shape[3]], device=config.device)
-    # noise_test = torch.normal(0,1,size = [coarse_test.shape[0], 1, coarse_test.shape[2],coarse_test.shape[3]], device=config.device)
-    # coarse_train = torch.cat([coarse_train, noise_train], 1)
-    # coarse_test = torch.cat([coarse_test, noise_test], 1)
-    fine_train = torch.from_numpy(fine_train)[:,None,...].to(config.device).float()
-    fine_test = torch.from_numpy(fine_test)[:,None,...].to(config.device).float()
-    invarient = torch.from_numpy(invarient)[None,...].to(config.device).float()
-    #print(invarient.shape)
+#else:
+    # coarse_train = torch.from_numpy(coarse_train)[:,None,...].to(config.device).float()
+    # coarse_test = torch.from_numpy(coarse_test)[:,None,...].to(config.device).float()
+    # fine_train = torch.from_numpy(fine_train)[:,None,...].to(config.device).float()
+    # fine_test = torch.from_numpy(fine_test)[:,None,...].to(config.device).float()
 print("Yep this works...")
 
 class StageData:
@@ -95,22 +80,20 @@ class StageData:
         print("Coarse data shape: ", coarse_train.shape)
         print("Fine data shape: ", fine_train.shape)
         if(highres_in):
-            print("Invarient shape: ", invarient.shape)
+            #print("Invarient shape: ", invarient.shape)
+            print("Invarient shape: ", invariant.shape)
 
         self.fine_dim_n = fine_train.shape[-1]
         self.n_predictands = fine_train.shape[1] ##adding invariant
         self.coarse_dim_n = coarse_train.shape[-1]
         self.n_covariates = coarse_train.shape[1]##adding invarient
-        # self.sampler = z_sampler
         
         if(highres_in):
-            # Get shapes for networks
-            self.n_invariant = invarient.shape[0] ##plus 1 for noise
-            #self.n_invariant = 1
+            self.n_invariant = 1
             print("Network dimensions: ")
             print("Fine: ", self.fine_dim_n, "x", self.n_predictands)
             print("Coarse: ", self.coarse_dim_n, "x", self.n_covariates)
-            print("Invariant: ", invarient.shape[1], "x", self.n_invariant)
+            #print("Invariant: ", invar_train.shape[1], "x", self.n_invariant)
             self.critic = Critic(self.coarse_dim_n, self.fine_dim_n,self.n_covariates, self.n_predictands).to(config.device)
             self.generator = Generator(self.coarse_dim_n, self.fine_dim_n, self.n_covariates, self.n_invariant, self.n_predictands).to(config.device)
         else:
@@ -135,8 +118,8 @@ class StageData:
 
         # Definte the dataset objects
         if(highres_in):
-            self.dataset = NetCDFSR(coarse_train, fine_train, invarient, device=config.device)
-            self.testdataset = NetCDFSR(coarse_test, fine_test, invarient, device = config.device)
+            self.dataset = NetCDFSR(coarse_train, fine_train, invariant, device=config.device)
+            self.testdataset = NetCDFSR(coarse_test, fine_test, invariant, device = config.device)
         else:
             self.dataset = NetCDFSR(coarse_train, fine_train, invarient=None, device=config.device)
             self.testdataset = NetCDFSR(coarse_test, fine_test, invarient=None, device = config.device)

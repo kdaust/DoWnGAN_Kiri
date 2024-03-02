@@ -158,7 +158,8 @@ class Generator(nn.Module):
             nn.Conv2d(filters + 1, n_predictands, kernel_size=3, stride=1, padding=1),
         )
         
-    def forward(self, x_coarse, x_fine):
+    def forward(self, x_coarse, x_fine, rseed):
+        torch.manual_seed(rseed)
         out = self.LR_pre(x_coarse)
         outc = self.upsampling(out)
         outf = self.HR_pre(x_fine)

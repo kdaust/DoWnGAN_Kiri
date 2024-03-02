@@ -26,6 +26,12 @@ already_preprocessed = True
 # Which CUDA device to see
 device = torch.device("cuda:0")
 
+##create masks for blending
+front_mask_row = torch.linspace(0,1,16,device=device).repeat(128,1)
+back_mask_row = torch.linspace(1,0,16,device=device).repeat(128,1)
+front_mask_col = torch.linspace(0,1,16,device=device).repeat(352,1).transpose(0,1)
+back_mask_col = torch.linspace(1,0,16,device=device).repeat(352,1).transpose(0,1)
+
 # One of florida, west, or central
 # One of florida, west, or central
 # region = "florida"

@@ -19,5 +19,5 @@ def define_experiment(mlclient):
     return mlclient.get_experiment_by_name(set_exp).experiment_id
 
 def write_tags():
-    choice = "(16x16) wind training on 3 locations fixed topo"
+    choice = "44 x 44 tiled v2 with same seed for tiles"
     return choice

@@ -1,5 +1,6 @@
 # Calculates epoch losses and logs them
 from DoWnGAN.GAN.losses import content_loss, content_MSELoss, SSIM_Loss, rankhist_loss
+from DoWnGAN.helpers.blendtiles import _combine_tile
 from DoWnGAN.config import config
 import DoWnGAN.config.hyperparams as hp
 import DoWnGAN.GAN.stage as s
@@ -8,6 +9,7 @@ import csv
 import mlflow
 from mlflow import log_param, log_metric
 
+import random
 import torch
 import os
 import pandas as pd
@@ -15,28 +17,6 @@ import pandas as pd
 from csv import DictWriter
 
 mlflow.set_tracking_uri(config.EXPERIMENT_PATH)
-
-def _comb_lr(a,b):
-        a_overlap = a[:,:,:,-16:]
-        b_overlap = b[:,:,:,0:16]
-        avg_overlap = (a_overlap + b_overlap)/2
-        comb = torch.cat([a[:,:,:,:-16],avg_overlap,b[:,:,:,16:]], dim = 3)
-        return comb
-    
-def _comb_tb(top, bottom):
-    t_overlap = top[:,:,-16:,:]
-    b_overlap = bottom[:,:,0:16,:]
-    tb_avg = (t_overlap + b_overlap)/2
-    res = torch.cat([top[:,:,:-16,:], tb_avg, bottom[:,:,16:,:]], dim = 2)
-    return(res)
-
-def _combine_tile(g_list):
-    top = _comb_lr(g_list[0],g_list[1])
-    bottom = _comb_lr(g_list[2],g_list[3])
-    res = _comb_tb(top,bottom)
-    return(res)
-
-
 
 def log_to_file(dict, train_test):
     """Writes the metrics to a csv file"""
@@ -72,8 +52,9 @@ def post_epoch_metric_mean(d, train_test):
     log_to_file(means, train_test)
 
 
-def gen_batch_and_log_metrics(G, C, coarse_list, invar_list, coarse, invariant, fine, d):
-    fake_out = [G(c.to(config.device),i.to(config.device)).detach() for (c, i) in zip(coarse_list,invar_list)]    
+def gen_batch_and_log_metrics(G, C, coarse_list, invar_list, coarse, fine, invariant, d):
+    seed = random.randint(0,1000000)
+    fake_out = [G(c.to(config.device),i.to(config.device),seed).detach() for (c, i) in zip(coarse_list,invar_list)]    
     fake = _combine_tile(fake_out) ##stich together
 
     coarse = coarse.to(config.device)

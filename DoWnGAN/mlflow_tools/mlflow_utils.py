@@ -19,5 +19,5 @@ def define_experiment(mlclient):
     return mlclient.get_experiment_by_name(set_exp).experiment_id
 
 def write_tags():
-    choice = "(16x16) precip, all training data, S_MAE"
+    choice = "(16x16) all vars CRPS full more data"
     return choice
