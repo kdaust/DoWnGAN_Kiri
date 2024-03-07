@@ -18,7 +18,7 @@ from mlflow.tracking import MlflowClient
 highres_in = True
 toydata = False
 rotation = False
-data_folder = "/home/kdaust/Masters/ds_all_vars/"
+data_folder = "/home/kdaust/data/ds_all_vars/"
 
 def load_preprocessed():
     if(not toydata):
@@ -51,9 +51,9 @@ coarse_train, fine_train, coarse_test, fine_test, invariant = load_preprocessed(
 print("Loading region into memory...")
 if(not toydata):
     coarse_train = torch.from_numpy(coarse_train.to_array().to_numpy()).transpose(0, 1)
-    fine_train = torch.from_numpy(fine_train.to_array().to_numpy()).transpose(0, 1)
+    fine_train = torch.from_numpy(fine_train.to_array().to_numpy()).transpose(0, 1)[:,(0,1,3,4),...]
     coarse_test = torch.from_numpy(coarse_test.to_array().to_numpy()).transpose(0, 1)
-    fine_test = torch.from_numpy(fine_test.to_array().to_numpy()).transpose(0, 1)
+    fine_test = torch.from_numpy(fine_test.to_array().to_numpy()).transpose(0, 1)[:,(0,1,3,4),...]
     invariant = invariant.to(config.device)
 
     ##for precip:

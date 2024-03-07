@@ -77,7 +77,7 @@ class WassersteinGAN:
             all_crps = []
             #fake_li = []
             n_realisation = 5
-            for img in range(coarse.shape[0]):
+            for img in range(fine.shape[0]):
                 coarse_rep = coarse[img,...].unsqueeze(0).repeat(n_realisation,1,1,1) ##same number as batchsize for now
                 fake_stoch = self.G(coarse_rep,invariant[0:n_realisation,...])
                 #fake_li.append(torch.mean(fake_stoch,0))
@@ -138,8 +138,8 @@ class WassersteinGAN:
         """
         print(80*"=")
         ##print("Wasserstein GAN")
-        train_metrics = initialize_metric_dicts({},5)
-        test_metrics = initialize_metric_dicts({},5)
+        train_metrics = initialize_metric_dicts({},4)
+        test_metrics = initialize_metric_dicts({},4)
 
         for i,data in enumerate(dataloader):
             coarse = data[0].to(config.device)
