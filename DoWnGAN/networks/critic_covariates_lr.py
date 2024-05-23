@@ -9,19 +9,18 @@ import torch.nn as nn
 class Critic(nn.Module):
     r"""The main architecture of the discriminator. Similar to VGG structure."""
 
-    def __init__(self, coarse_dim, fine_dim, nc_LR, nc_HR, inv_dim):
+    def __init__(self, coarse_dim, fine_dim, nc_LR, nc_HR):
         super(Critic, self).__init__()
         self.coarse_dim = coarse_dim
         self.fine_dim = fine_dim
         self.nc_HR = nc_HR
         self.nc_LR = nc_LR
-        self.inv_dim = inv_dim
         # layers = []
         # for i in range(1, 5):
         #     multiplier = i**2
         self.features_hr = nn.Sequential(
             nn.Conv2d(
-                self.nc_HR + inv_dim, self.coarse_dim, kernel_size=3, stride=1, padding=1
+                self.nc_HR, self.coarse_dim, kernel_size=3, stride=1, padding=1
             ),  # input is 128 * 128
             nn.LeakyReLU(negative_slope=0.2, inplace=True),
             nn.Conv2d(
@@ -100,7 +99,7 @@ class Critic(nn.Module):
 
         self.features_lr = nn.Sequential(
             nn.Conv2d(
-                self.nc_LR, self.coarse_dim, kernel_size=3, stride=1, padding=1
+                self.nc_LR + 1, self.coarse_dim, kernel_size=3, stride=1, padding=1
             ),  # input is 128 * 128
             nn.LeakyReLU(negative_slope=0.2, inplace=True),
             nn.Conv2d(
@@ -152,10 +151,10 @@ class Critic(nn.Module):
             nn.Linear(100, 1),
         )
 
-    def forward(self, input: torch.Tensor, cov_hr: torch.Tensor, cov_lr: torch.Tensor) -> torch.Tensor:
-        in_hr = torch.cat([input, cov_hr], 1)
-        out_hr = self.features_hr(in_hr)
-        out_lr = self.features_lr(cov_lr)
+    def forward(self, input: torch.Tensor, lr_topo: torch.Tensor, cov_lr: torch.Tensor) -> torch.Tensor:
+        in_lr = torch.cat([cov_lr, lr_topo], 1)
+        out_hr = self.features_hr(input)
+        out_lr = self.features_lr(in_lr)
         out_all = torch.cat([out_hr,out_lr],1)
         out_all = self.features_all(out_all)
         out = torch.flatten(out_all, 1)

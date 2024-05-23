@@ -14,10 +14,10 @@ def define_experiment(mlclient):
     print("Enter the experiment name you wish to add the preceding training run to.")
     print("Select number from list or press n for new experiment: ")
     #[print(exp.experiment_id,":", exp.name) for i, exp in enumerate(mlclient.list_experiments())]
-    set_exp = "Tars"
+    set_exp = "Tars_May"
     #mlclient.create_experiment(set_exp)
     return mlclient.get_experiment_by_name(set_exp).experiment_id
 
 def write_tags():
-    choice = "(16x16) removed precip CRPS full more data"
+    choice = "(16x16) just q location2 hr topo and lu index"
     return choice

@@ -11,7 +11,7 @@ import mlflow
 highres_in = True
 freq_sep = False
 torch.autograd.set_detect_anomaly(True)
-
+n_realisation = 5 ##stochastic sampling
 
 class WassersteinGAN:
     """Implements Wasserstein GAN with gradient penalty and 
@@ -69,22 +69,17 @@ class WassersteinGAN:
             fake_low = hp.low(hp.rf(fake))
             real_low = hp.low(hp.rf(fine))
 
-            #fake_high = fake - fake_low
             c_fake = self.C(fake,invariant,coarse)
             cont_loss = content_loss(fake_low, real_low, device=config.device)
+            #cont_loss = content_loss(fake, fine, device=config.device)
         else: ##stochastic mean
             c_fake = self.C(fake,invariant,coarse) ## wasserstein distance
-            all_crps = []
-            #fake_li = []
-            n_realisation = 5
-            for img in range(fine.shape[0]):
-                coarse_rep = coarse[img,...].unsqueeze(0).repeat(n_realisation,1,1,1) ##same number as batchsize for now
-                fake_stoch = self.G(coarse_rep,invariant[0:n_realisation,...])
-                #fake_li.append(torch.mean(fake_stoch,0))
-                all_crps.append(crps_empirical(fake_stoch, fine[img,...])) ##calculate crps for each image
-                del fake_stoch
-            
-            crps = torch.stack(all_crps)
+            ls1 = [i for i in range(fine.shape[0])]
+            dat_lr = [coarse[i,...].unsqueeze(0).repeat(n_realisation,1,1,1) for i in ls1]
+            dat_hr = [fine[i,...] for i in ls1]
+            dat_sr = [self.G(lr,invariant[0:n_realisation,...]) for lr in dat_lr]
+            crps_ls = [crps_empirical(sr,hr) for sr,hr in zip(dat_sr,dat_hr)]
+            crps = torch.cat(crps_ls)
         
         #g_loss = -torch.mean(c_fake) * hp.gamma + hp.content_lambda * cont_loss
         g_loss = -torch.mean(c_fake) * hp.gamma + hp.content_lambda * torch.mean(crps)
@@ -138,8 +133,8 @@ class WassersteinGAN:
         """
         print(80*"=")
         ##print("Wasserstein GAN")
-        train_metrics = initialize_metric_dicts({},4)
-        test_metrics = initialize_metric_dicts({},4)
+        train_metrics = initialize_metric_dicts({},1)
+        test_metrics = initialize_metric_dicts({},1)
 
         for i,data in enumerate(dataloader):
             coarse = data[0].to(config.device)
@@ -165,7 +160,7 @@ class WassersteinGAN:
             )
             self.num_steps += 1
 
-        if epoch % 5 == 0:
+        if epoch % 10 == 0:
             # Take mean of all batches and log to file
             with torch.no_grad():
                 post_epoch_metric_mean(train_metrics, "train")

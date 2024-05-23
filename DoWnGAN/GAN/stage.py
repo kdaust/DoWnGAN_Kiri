@@ -18,15 +18,15 @@ from mlflow.tracking import MlflowClient
 highres_in = True
 toydata = False
 rotation = False
-data_folder = "/home/kdaust/data/ds_all_vars/"
+data_folder = "/home/kdaust/data/loc2_all/"
 
 def load_preprocessed():
     if(not toydata):
         coarse_train = xr.open_dataset(data_folder + "coarse_train.nc", engine="netcdf4")
-        fine_train = xr.open_dataset(data_folder + "fine_train.nc", engine="netcdf4")
+        fine_train = xr.open_dataset(data_folder + "fine_train_tq.nc", engine="netcdf4")
         coarse_test = xr.open_dataset(data_folder + "coarse_test.nc", engine="netcdf4")
-        fine_test = xr.open_dataset(data_folder + "fine_test.nc", engine="netcdf4")
-        invarient = torch.load(data_folder + "hr_topo.pt").unsqueeze(0)
+        fine_test = xr.open_dataset(data_folder + "fine_test_tq.nc", engine="netcdf4")
+        invarient = torch.load(data_folder + "hr_topo_lu.pt").float()
         return coarse_train, fine_train, coarse_test, fine_test, invarient
     else:
        coarse_train = np.load(data_folder+"coarse_train.npy")
@@ -50,11 +50,19 @@ coarse_train, fine_train, coarse_test, fine_test, invariant = load_preprocessed(
 # Convert to tensors
 print("Loading region into memory...")
 if(not toydata):
-    coarse_train = torch.from_numpy(coarse_train.to_array().to_numpy()).transpose(0, 1)
-    fine_train = torch.from_numpy(fine_train.to_array().to_numpy()).transpose(0, 1)[:,(0,1,3,4),...]
-    coarse_test = torch.from_numpy(coarse_test.to_array().to_numpy()).transpose(0, 1)
-    fine_test = torch.from_numpy(fine_test.to_array().to_numpy()).transpose(0, 1)[:,(0,1,3,4),...]
+    coarse_train = torch.from_numpy(coarse_train.to_array().to_numpy()).transpose(0, 1).float()
+    fine_train = torch.from_numpy(fine_train.to_array().to_numpy()).transpose(0, 1).float()[:,(1),...].unsqueeze(1)
+    coarse_test = torch.from_numpy(coarse_test.to_array().to_numpy()).transpose(0, 1).float()
+    fine_test = torch.from_numpy(fine_test.to_array().to_numpy()).transpose(0, 1).float()[:,(1),...].unsqueeze(1)
     invariant = invariant.to(config.device)
+    
+    # which_zero = torch.sum(fine_train[:,0,...], dim = (1,2))
+    # fine_train = fine_train[which_zero > -10908,...]
+    # coarse_train = coarse_train[which_zero > -10908,...]
+
+    # which_zero = torch.sum(fine_test[:,0,...], dim = (1,2))
+    # fine_test = fine_test[which_zero > -10908 ,...]
+    # coarse_test = coarse_test[which_zero > -10908,...]
 
     ##for precip:
     # which_zero = torch.sum(fine_train, dim = (1,2,3))
@@ -89,12 +97,11 @@ class StageData:
         self.n_covariates = coarse_train.shape[1]##adding invarient
         
         if(highres_in):
-            self.n_invariant = 1
+            self.n_invariant = 2
             print("Network dimensions: ")
             print("Fine: ", self.fine_dim_n, "x", self.n_predictands)
             print("Coarse: ", self.coarse_dim_n, "x", self.n_covariates)
-            #print("Invariant: ", invar_train.shape[1], "x", self.n_invariant)
-            self.critic = Critic(self.coarse_dim_n, self.fine_dim_n,self.n_covariates, self.n_predictands).to(config.device)
+            self.critic = Critic(self.coarse_dim_n, self.fine_dim_n,self.n_covariates, self.n_predictands, self.n_invariant).to(config.device)
             self.generator = Generator(self.coarse_dim_n, self.fine_dim_n, self.n_covariates, self.n_invariant, self.n_predictands).to(config.device)
         else:
             self.n_predictands = 1
