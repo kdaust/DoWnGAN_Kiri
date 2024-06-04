@@ -20,26 +20,19 @@ class NetCDFSR(Dataset):
         self.fine = fine
         self.coarse = coarse
         self.invarient = invarient
+        self.device = device
 
     def __len__(self):
         return self.fine.size(0)
 
     def __getitem__(self, idx):
-        noise_inv = False
         if torch.is_tensor(idx):
             idx = idx.tolist()
-
-        #fine_ = self.fine[idx, ...]
-        #fine_ = torch.cat([self.fine[idx,...],self.invarient],0)
-        #coarse_ = torch.cat([self.coarse[idx, ...],self.invarient],0)
-        fine_ = self.fine[idx,...]
-        coarse_ = self.coarse[idx,...]
+            
+        fine_ = self.fine[idx,...].to(self.device)
+        coarse_ = self.coarse[idx,...].to(self.device)
         if(self.invarient is None):
             return coarse_, fine_, -1
         else:
-            if(noise_inv):
-                noise_inv = torch.normal(0,1, size = [1,self.invarient.shape[1],self.invarient.shape[2]],device=self.device)
-                invarient_ = torch.cat([self.invarient,noise_inv],0)
-            else:
-                invarient_ = self.invarient
+            invarient_ = self.invarient.to(self.device)
             return coarse_, fine_, invarient_

@@ -1,5 +1,6 @@
 # Calculates epoch losses and logs them
 from DoWnGAN.GAN.losses import content_loss, content_MSELoss, SSIM_Loss, rankhist_loss
+from DoWnGAN.helpers.blendtiles import _combine_tile
 from DoWnGAN.config import config
 import DoWnGAN.config.hyperparams as hp
 import DoWnGAN.GAN.stage as s
@@ -8,6 +9,7 @@ import csv
 import mlflow
 from mlflow import log_param, log_metric
 
+import random
 import torch
 import os
 import pandas as pd
@@ -27,13 +29,9 @@ def log_to_file(dict, train_test):
     # mlflow.log_artifact(csv_path)
 
 
-def initialize_metric_dicts(d, num_preds):
+def initialize_metric_dicts(d):
     for key in hp.metrics_to_calculate.keys():
-        if(key == "MAE"):
-            for i in range(num_preds):
-                d[key + "_" + str(i)] = []
-        else:
-            d[key] = []
+        d[key] = []
     return d
 
 
@@ -44,7 +42,7 @@ def metric_print(metric, metric_value):
 def post_epoch_metric_mean(d, train_test):
     # Tracks batch metrics through 
     means = {}
-    for key in d.keys():
+    for key in hp.metrics_to_calculate.keys():
         means[key] = [torch.mean(
             torch.FloatTensor(d[key])
         ).item()]
@@ -54,23 +52,22 @@ def post_epoch_metric_mean(d, train_test):
     log_to_file(means, train_test)
 
 
-def gen_batch_and_log_metrics(G, C, coarse, real, invariant, d):
-    if(invariant is None):
-        fake = G(coarse).detach()
-    else:
-        fake = G(coarse,invariant).detach()
+def gen_batch_and_log_metrics(G, C, coarse_list, invar_list, coarse, fine, invariant, d):
+    seed = random.randint(0,1000000)
+    fake_out = [G(c.to(config.device),i.to(config.device),seed).detach() for (c, i) in zip(coarse_list,invar_list)]    
+    fake = _combine_tile(fake_out) ##stich together
 
-    creal = torch.mean(C(real,invariant,coarse)).detach()
+    coarse = coarse.to(config.device)
+    invariant = invariant.to(config.device)
+    fine = fine.to(config.device)
+    creal = torch.mean(C(fine,invariant,coarse)).detach()
     cfake = torch.mean(C(fake,invariant,coarse)).detach()
 
     for key in hp.metrics_to_calculate.keys():
         if key == "Wass":
             d[key].append(hp.metrics_to_calculate[key](creal, cfake, config.device).detach().cpu().item())
-        elif key == "CRPS":
-            d[key].append(hp.metrics_to_calculate[key](G,coarse, real, invariant, config.device).cpu().item())
         else:
-            for i in range(real.shape[1]):
-                d[key + "_" + str(i)].append(hp.metrics_to_calculate[key](real[:,i,...], fake[:,i,...], config.device).detach().cpu().item())
+            d[key].append(hp.metrics_to_calculate[key](fine, fake, config.device).detach().cpu().item())
     return d
 
 def log_network_models(C, G, epoch):

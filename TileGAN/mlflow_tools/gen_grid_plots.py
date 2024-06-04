@@ -4,9 +4,11 @@ import matplotlib.pyplot as plt
 import torchvision
 import DoWnGAN.config.hyperparams as hp
 from DoWnGAN.config import config
+from DoWnGAN.helpers.blendtiles import _combine_tile
+import random
 import mlflow
 
-def gen_grid_images(G, coarse, invariant, real, epoch, train_test):
+def gen_grid_images(G, c_list, i_list, coarse, fine, epoch, train_test):
     """
     Plots a grid of images and saves them to file
     Args:
@@ -14,25 +16,24 @@ def gen_grid_images(G, coarse, invariant, real, epoch, train_test):
         fake (torch.Tensor): The fake input.
         real (torch.Tensor): The real input.
     """
-    random = torch.randint(0, hp.batch_size, (5, ))
-    if(invariant == -1):
-        fake = G(coarse[random, ...].to(config.device))
-    else:
-        fake = G(coarse[random, ...].to(config.device), invariant[random,...].to(config.device))
     
+    seed = random.randint(0,1000000)
+    fake_out = [G(c.to(config.device),i.to(config.device),seed).detach() for (c, i) in zip(c_list,i_list)]    
+    fake = _combine_tile(fake_out) ##stich together
+    
+    rand_idx = torch.randint(0, hp.batch_size, (5, ))
     coarse = torchvision.utils.make_grid(
-        coarse[random, ...],
-        nrow=5
-    )[3, ...]
-
-    fake = torchvision.utils.make_grid(
-        fake,
+        coarse[rand_idx, ...],
         nrow=5
     )[0, ...]
 
+    fake = torchvision.utils.make_grid(
+        fake[rand_idx, ...],
+        nrow=5
+    )[0, ...]
 
     real = torchvision.utils.make_grid(
-        real[random, ...],
+        fine[rand_idx, ...],
         nrow=5
     )[0, ...]
 
@@ -57,7 +58,6 @@ def gen_grid_images(G, coarse, invariant, real, epoch, train_test):
     subfigs[2].suptitle("WRF")
     ax = subfigs[2].subplots(1, 1)
     ax.imshow(real.cpu().detach(), origin="lower")
-
 
     if epoch % 10 == 0:
         plt.savefig(f"{mlflow.get_artifact_uri()}/{train_test}_{epoch}.png")

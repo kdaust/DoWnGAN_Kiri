@@ -14,10 +14,10 @@ def define_experiment(mlclient):
     print("Enter the experiment name you wish to add the preceding training run to.")
     print("Select number from list or press n for new experiment: ")
     #[print(exp.experiment_id,":", exp.name) for i, exp in enumerate(mlclient.list_experiments())]
-    set_exp = "Tars_May"
+    set_exp = "Marvin"
     #mlclient.create_experiment(set_exp)
     return mlclient.get_experiment_by_name(set_exp).experiment_id
 
 def write_tags():
-    choice = "(16x16) just q location2 hr topo and lu index"
+    choice = "44 x 44 tiled v2 with same seed for tiles"
     return choice

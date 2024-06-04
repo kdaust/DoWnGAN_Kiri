@@ -42,7 +42,7 @@ def crps_empirical(pred, truth): ##adapted from https://docs.pyro.ai/en/stable/_
     )
     weight = weight.reshape(weight.shape + (1,) * (diff.dim() - 1))
 
-    return (pred - truth).abs().mean(0) - (diff * weight).sum(0) / num_samples**2
+    return torch.mean((pred - truth).abs().mean(0) - (diff * weight).sum(0) / num_samples**2)
 
 def wass_loss(real, fake, device):
     return real - fake

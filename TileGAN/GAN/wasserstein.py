@@ -1,17 +1,19 @@
 from DoWnGAN.GAN.stage import StageData
 import DoWnGAN.config.hyperparams as hp
+from DoWnGAN.helpers.blendtiles import _combine_tile
 from DoWnGAN.config import config
 from DoWnGAN.GAN.losses import content_loss, crps_empirical
 from DoWnGAN.mlflow_tools.gen_grid_plots import gen_grid_images
 from DoWnGAN.mlflow_tools.mlflow_epoch import post_epoch_metric_mean, gen_batch_and_log_metrics, initialize_metric_dicts, log_network_models
 import torch
+import random
 from torch.autograd import grad as torch_grad
 
 import mlflow
-highres_in = False
+highres_in = True
 freq_sep = True
 torch.autograd.set_detect_anomaly(True)
-n_realisation = 5 ##stochastic sampling
+
 
 class WassersteinGAN:
     """Implements Wasserstein GAN with gradient penalty and 
@@ -24,17 +26,17 @@ class WassersteinGAN:
         self.C_optimizer = C_optimizer
         self.num_steps = 0
         
-    def _critic_train_iteration(self, coarse, fine, invariant):
+    def _critic_train_iteration(self, coarse_list, invar_list, coarse, fine, invariant):
         """
         Performs one iteration of the critic training.
         Args:
             coarse (torch.Tensor): The coarse input.
             fine (torch.Tensor): The fine input.
         """
-        if(highres_in):
-            fake = self.G(coarse, invariant) ##generate fake image from generator
-        else:
-            fake = self.G(coarse)
+        seed = random.randint(0,1000000)
+        fake_out = [self.G(c.to(config.device),i.to(config.device),seed) for (c, i) in zip(coarse_list,invar_list)]    
+        fake = _combine_tile(fake_out) ##stich together
+
         c_real = self.C(fine,invariant,coarse) ##make prediction for real image
         c_fake = self.C(fake,invariant,coarse) ##make prediction for generated image
 
@@ -50,8 +52,28 @@ class WassersteinGAN:
         # Update the critic
         self.C_optimizer.step()
 
+    # def _comb_lr(self, a,b):
+    #     a_overlap = a[:,:,:,-16:]
+    #     b_overlap = b[:,:,:,0:16]
+    #     avg_overlap = (a_overlap + b_overlap)/2
+    #     comb = torch.cat([a[:,:,:,:-16],avg_overlap,b[:,:,:,16:]], dim = 3)
+    #     return comb
+    
+    # def _comb_tb(self, top, bottom):
+    #     t_overlap = top[:,:,-16:,:]
+    #     b_overlap = bottom[:,:,0:16,:]
+    #     tb_avg = (t_overlap + b_overlap)/2
+    #     res = torch.cat([top[:,:,:-16,:], tb_avg, bottom[:,:,16:,:]], dim = 2)
+    #     return(res)
+    
+    # def _combine_tile(self, g_list):
+    #     top = self._comb_lr(g_list[0],g_list[1])
+    #     bottom = self._comb_lr(g_list[2],g_list[3])
+    #     res = self._comb_tb(top,bottom)
+    #     return(res)
 
-    def _generator_train_iteration(self, coarse, fine, invariant, iteration):
+
+    def _generator_train_iteration(self, coarse_list, invar_list, coarse, fine, invariant, iteration):
         """
         Performs one iteration of the generator training.
         Args:
@@ -59,30 +81,16 @@ class WassersteinGAN:
             fine (torch.Tensor): The fine input.
         """
         self.G_optimizer.zero_grad()
-        
-        if(highres_in):
-            fake = self.G(coarse, invariant) ##generate fake image from generator
-        else:
-            fake = self.G(coarse)
-        
-        if(freq_sep):
-            fake_low = hp.low(hp.rf(fake))
-            real_low = hp.low(hp.rf(fine))
+        seed = random.randint(0,1000000)
+        fake_out = [self.G(c.to(config.device),i.to(config.device),seed) for (c, i) in zip(coarse_list,invar_list)]    
+        fake = _combine_tile(fake_out) ##stich together
 
-            c_fake = self.C(fake,invariant,coarse)
-            cont_loss = content_loss(fake_low, real_low, device=config.device)
-            #cont_loss = content_loss(fake, fine, device=config.device)
-        else: ##stochastic mean
-            c_fake = self.C(fake,invariant,coarse) ## wasserstein distance
-            ls1 = [i for i in range(fine.shape[0])]
-            dat_lr = [coarse[i,...].unsqueeze(0).repeat(n_realisation,1,1,1) for i in ls1]
-            dat_hr = [fine[i,...] for i in ls1]
-            dat_sr = [self.G(lr,invariant[0:n_realisation,...]) for lr in dat_lr]
-            crps_ls = [crps_empirical(sr,hr) for sr,hr in zip(dat_sr,dat_hr)]
-            crps = torch.cat(crps_ls)
-        
-        #g_loss = -torch.mean(c_fake) * hp.gamma + hp.content_lambda * cont_loss
-        g_loss = -torch.mean(c_fake) * hp.gamma + hp.content_lambda * torch.mean(crps)
+        fake_low = hp.low(hp.rf(fake))
+        real_low = hp.low(hp.rf(fine))
+        c_fake = self.C(fake,invariant,coarse)
+        cont_loss = content_loss(fake_low, real_low, device=config.device)
+
+        g_loss = -torch.mean(c_fake) * hp.gamma + hp.content_lambda * cont_loss  
         g_loss.backward()
 
         # Update the generator
@@ -123,7 +131,7 @@ class WassersteinGAN:
         return torch.mean((gradients_norm - 1) ** 2)
 
 
-    def _train_epoch(self, dataloader, testdataloader, epoch):
+    def _train_epoch(self, dataloader, epoch):
         """
         Performs one epoch of training.
         Args:
@@ -132,29 +140,24 @@ class WassersteinGAN:
         """
         print(80*"=")
         ##print("Wasserstein GAN")
-        train_metrics = initialize_metric_dicts({},1)
-        test_metrics = initialize_metric_dicts({},1)
+        train_metrics = initialize_metric_dicts({})
+        test_metrics = initialize_metric_dicts({})
 
         for i,data in enumerate(dataloader):
-            coarse = data[0].to(config.device)
-            fine = data[1].to(config.device)
-            if(highres_in):
-                invariant = data[2].to(config.device)
-            else:
-                invariant = None
-            
-            self._critic_train_iteration(coarse, fine, invariant)
+            self._critic_train_iteration(data[0], data[1], data[2], data[3], data[4])
 
-            if self.num_steps%hp.critic_iterations == 0:
-                self._generator_train_iteration(coarse, fine, invariant, epoch)
+            if self.num_steps % hp.critic_iterations == 0:
+                self._generator_train_iteration(data[0], data[1], data[2], data[3], data[4], epoch)
 
             # Track train set metrics
-            train_metrics = gen_batch_and_log_metrics(
+            train_metrics = gen_batch_and_log_metrics( ##fix this
                 self.G,
                 self.C,
-                coarse,
-                fine,
-                invariant,
+                data[0],
+                data[1],
+                data[2],
+                data[3],
+                data[4],
                 train_metrics,
             )
             self.num_steps += 1
@@ -165,42 +168,14 @@ class WassersteinGAN:
                 post_epoch_metric_mean(train_metrics, "train")
     
                 # Generate plots from training set
-                cbatch, rbatch, invbatch = next(iter(dataloader))
-                if(not highres_in):
-                    invbatch = -1
-                gen_grid_images(self.G, cbatch, invbatch, rbatch, epoch, "train")
-    
-                test_metrics = initialize_metric_dicts({}, rbatch.shape[1])
-                for data in testdataloader:
-                    coarse = data[0].to(config.device)
-                    fine = data[1].to(config.device)
-                    if(highres_in):
-                        invariant = data[2].to(config.device)
-                    else:
-                        invariant = None
-                    # Track train set metrics
-                    test_metrics = gen_batch_and_log_metrics(
-                        self.G,
-                        self.C,
-                        coarse,
-                        fine,
-                        invariant,
-                        test_metrics,
-                    )
-    
-                # Take mean of all batches and log to file
-                post_epoch_metric_mean(test_metrics, "test")
-    
-                cbatch, rbatch, invbatch = next(iter(testdataloader))
-                if(not highres_in):
-                    invbatch = -1
-                gen_grid_images(self.G, cbatch, invbatch, rbatch, epoch, "test")
+                c_list, i_list, coarse, fine, invariant = next(iter(dataloader))
+                gen_grid_images(self.G, c_list, i_list, coarse, fine, epoch, "train")
     
                 # Log the models to mlflow pytorch models
                 print(f"Artifact URI: {mlflow.get_artifact_uri()}")
                 log_network_models(self.C, self.G, epoch)
 
-    def train(self, dataloader, testdataloader):
+    def train(self, dataloader):
         """
         Trains the model.
         Args:
@@ -208,4 +183,6 @@ class WassersteinGAN:
         """
         self.num_steps = 0
         for epoch in range(hp.epochs):
-            self._train_epoch(dataloader, testdataloader, epoch)
+            self._train_epoch(dataloader, epoch)
+
+

@@ -34,7 +34,7 @@ setup(
         License :: GNU General Public License v3 (GPLv3)
         Operating System :: OS Independent
         Hardware :: Requires CUDA GPU
-        Programming Language :: Python :: 3.8
+        Programming Language :: Python :: 3.10
         Topic :: Scientific/Engineering
         Topic :: Software Development :: Libraries :: Python Modules""".split(
                 "\n"

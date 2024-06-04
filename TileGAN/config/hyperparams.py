@@ -16,9 +16,9 @@ import os
 # Hyper params
 gp_lambda = 10
 critic_iterations = 5
-batch_size = 24
+batch_size = 8
 gamma = 0.01
-content_lambda = 20
+content_lambda =10
 #variance_lambda = 8
 ncomp = 75
 lr = 0.00025
@@ -38,7 +38,7 @@ rf = nn.ReplicationPad2d(padding)
 
 metrics_to_calculate = {
     "MAE": content_loss,
-    #"MSE": content_MSELoss,
+    "MSE": content_MSELoss,
     #"VLoss": variance_loss,
     "Wass": wass_loss
 }
