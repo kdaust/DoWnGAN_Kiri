@@ -104,6 +104,7 @@ class Generator(nn.Module):
         )
         
     def forward(self, x_coarse):
+        print("Using generator toydata nonoise")
         out = self.LR_pre(x_coarse)
         outc = self.upsampling(out)
         out = self.conv3(outc)

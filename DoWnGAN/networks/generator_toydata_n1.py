@@ -157,8 +157,6 @@ class Generator(nn.Module):
         )
         
     def forward(self, x_coarse):
-        noise = torch.normal(0,1,size = [x.shape[0], 1, self.resolution, self.resolution], device=x.device)
-        x_coarse
         out = self.LR_pre(x_coarse)
         outc = self.upsampling(out)
         #print(outc.size())

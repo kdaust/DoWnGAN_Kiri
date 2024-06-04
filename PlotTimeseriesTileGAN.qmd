@@ -1,0 +1,156 @@
+---
+title: "PlotOutput"
+author: "Kiri Daust"
+format: html
+editor: visual
+jupyter: python3
+---
+
+## val Plot
+
+```{python}
+import numpy as np
+import torch
+import mlflow
+import xarray as xr
+from matplotlib import pyplot as plt
+from matplotlib import colorbar, colors, gridspec
+from matplotlib.animation import FuncAnimation
+#from IPython import display
+device = torch.device("cuda:0")
+```
+
+Stitching Functions
+
+```{python}
+#| echo: false
+
+front_mask_row = torch.linspace(0,1,16).repeat(128,1)
+back_mask_row = torch.linspace(1,0,16).repeat(128,1)
+front_mask_col = torch.linspace(0,1,16).repeat(352,1).transpose(0,1)
+back_mask_col = torch.linspace(1,0,16).repeat(352,1).transpose(0,1)
+
+def _comb1(a,b):
+  a_overlap = a[:,:,:,-16:]
+  b_overlap = b[:,:,:,0:16]
+  avg_overlap = (a_overlap * back_mask_row + b_overlap * front_mask_row)
+  comb = torch.cat([a[:,:,:,:-16],avg_overlap,b[:,:,:,16:]], dim = 3)
+  return comb
+
+def _comb2(top, bottom):
+  t_overlap = top[:,:,-16:,:]
+  b_overlap = bottom[:,:,0:16,:]
+  tb_avg = (t_overlap * back_mask_col + b_overlap * front_mask_col)
+  res = torch.cat([top[:,:,:-16,:], tb_avg, bottom[:,:,16:,:]], dim = 2)
+  return(res)
+
+def _comb_row(rlist):
+  n_tile = len(rlist)
+  ab = _comb1(rlist[0],rlist[1])
+  abc = _comb1(ab, rlist[2])
+  return(abc)
+
+def _comb_col(clist):
+  ab = _comb2(clist[0],clist[1])
+  abc = _comb2(ab, clist[2])
+  return(abc)
+
+def _combine_tile(g_list):
+  row_ls = []
+  for i in range(3):
+    row_ls.append(_comb_row(g_list[i*3:(i+1)*3]))
+  res = _comb_col(row_ls)
+  return(res)
+```
+
+Load data
+
+```{python}
+data_folder = "../Data/tile_data/temperature/"
+
+invar_paths = ["inv1.pt","inv2.pt","inv3.pt","inv4.pt","inv5.pt","inv6.pt","inv7.pt","inv8.pt","inv9.pt"]
+invar_tiles = [torch.load(data_folder + x).unsqueeze(0) for x in invar_paths]
+#fine_fields = xr.open_dataset(data_folder + "fine_val_short.nc", engine="netcdf4")
+#fine = torch.from_numpy(fine_fields.to_array().to_numpy()).transpose(0, 1)
+#coarse_paths = ["val_coarse1.pt","val_coarse2.pt","val_coarse3.pt","val_coarse4.pt","val_coarse5.pt","val_coarse6.pt","val_coarse7.pt","val_coarse8.pt","val_coarse9.pt"]
+
+coarse_paths = ["val_coarse1.pt","val_coarse2.pt","val_coarse3.pt","val_coarse4.pt","val_coarse5.pt","val_coarse6.pt","val_coarse7.pt","val_coarse8.pt","val_coarse9.pt"]
+coarse_tiles = [torch.load(data_folder + x) for x in coarse_paths]
+
+cond_fields = xr.open_dataset(data_folder + "coarse_test.nc", engine="netcdf4")
+coarse_full = torch.from_numpy(cond_fields.to_array().to_numpy()).transpose(0, 1)
+
+G_tile = mlflow.pytorch.load_model("../Generators/safron/temperature/Generator_165/")
+```
+
+Let's plot a single timestep
+
+```{python}
+c_list = [x[1042:1048,...] for x in coarse_tiles]
+i_list = [x.repeat(6,1,1,1) for x in invar_tiles]
+
+fake_out = [G_tile(c.to(device).float(),i.to(device).float(),42).cpu().detach() for (c, i) in zip(c_list,i_list)]    
+fake = torch.flipud(_combine_tile(fake_out)) ##stich together
+
+plt.close()
+plt.imshow(torch.flipud(fake[5,0,...]))
+plt.show()
+plt.savefig("Example_Tile9_Temp.png",bbox_inches = "tight", dpi = 400)
+```
+
+Now let's generate a bunch
+
+```{python}
+import random
+gen_v1 = []
+batchsize = 6
+i_list = [x.repeat(batchsize,1,1,1) for x in invar_tiles]
+seed = 42                               
+for x in range(165):    
+  print("-"*20,x,"-"*20)
+  #seed = random.randint(0,1000000)
+  c_list = [crs[x*6:(x*6+6),...] for crs in coarse_tiles]
+  fake_v1 = [G_tile(c.to(device).float(),i.to(device).float(),seed).cpu().detach() for (c, i) in zip(c_list,i_list)]
+  gen_v1.append(_combine_tile(fake_v1))
+
+gens_v1 = torch.cat(gen_v1)
+```
+
+Now let's try plotting
+
+```{python}
+import matplotlib.animation as animation
+
+
+def update(i):
+    #im_all[0].set_array(torch.flipud(coarse_full[i,0,...]))
+    im_all[0].set_array(torch.flipud(gens_v1[i,0,...]))
+    #im_all[2].set_array(torch.flipud(fine[i,1,...]))
+    return im_all 
+```
+
+```{python}
+
+plt.close()
+plt.rcParams['figure.figsize'] = [8, 8]
+fig, (ax1) = plt.subplots(1,1)
+
+#ax1.set_title("LR Input")
+#ax2.set_title("Generated")
+#ax3.set_title("High-Res")
+
+# im1 = ax1.imshow(torch.flipud(coarse_full[0,0,...]), animated=True)
+# ax1.tick_params(left=False, bottom=False,
+#         labelleft=False, labelbottom=False)
+im2 = ax1.imshow(torch.flipud(gens_v1[0,0,...]), animated=True)
+ax2.tick_params(left=False, bottom=False,
+        labelleft=False, labelbottom=False)
+#im3 = ax3.imshow(torch.flipud(fine[0,1,...]), animated=True)
+#ax3.tick_params(left=False, bottom=False,labelleft=False, labelbottom=False)
+
+im_all = [im2]
+animation_fig = animation.FuncAnimation(fig, update, frames=800, interval=100, repeat_delay=10,)
+
+animation_fig.save("TileGAN_Temperature.gif")
+plt.show()
+```

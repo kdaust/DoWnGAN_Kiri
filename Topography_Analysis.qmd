@@ -1,0 +1,700 @@
+---
+title: "Test Topography"
+author: "Kiri Daust"
+format: html
+editor: visual
+jupyter: python3
+---
+
+## Setup
+
+```{python}
+import numpy as np
+import torch
+import mlflow
+import xarray as xr
+from matplotlib import pyplot as plt
+from matplotlib import colorbar, colors, gridspec
+from DoWnGAN.helpers.analysis import plot_img
+from DoWnGAN.helpers.analysis import ralsd
+from DoWnGAN.helpers.analysis import calc_ralsd
+from DoWnGAN.GAN.dataloader import NetCDFSR
+
+device = torch.device("cuda:0")
+```
+
+## Topography with Temp and Humid
+
+```{python}
+data_folder = "../Data/ds_all_vars/"
+
+cond_fields = xr.open_dataset(data_folder + "coarse_test.nc", engine="netcdf4")
+fine_fields = xr.open_dataset(data_folder + "fine_test.nc", engine="netcdf4")
+coarse = torch.from_numpy(cond_fields.to_array().to_numpy()).transpose(0, 1)
+fine = torch.from_numpy(fine_fields.to_array().to_numpy()).transpose(0, 1)
+
+cond_fields = xr.open_dataset("../Data/ds_humid_v2/" + "coarse_test.nc", engine="netcdf4")
+fine_fields = xr.open_dataset("../Data/ds_humid_v2/" + "fine_test_th.nc", engine="netcdf4")
+coarse_th = torch.from_numpy(cond_fields.to_array().to_numpy()).transpose(0, 1)
+fine_th = torch.from_numpy(fine_fields.to_array().to_numpy()).transpose(0, 1)
+
+inv_reg = torch.load(data_folder + "hr_topo.pt")
+inv_diff = torch.load("../Data/loc2_all/" + "hr_topo_loc2.pt")
+inv_lr = torch.load(data_folder + "lr_topo.pt")
+```
+
+### Load Models
+
+```{python}
+G_good = mlflow.pytorch.load_model("../Generators/paper2/topography/temp_q_hr/")
+G_diff = mlflow.pytorch.load_model("../Generators/paper2/topography/temp_q_wrong_topo/")
+G_lr = mlflow.pytorch.load_model("../Generators/paper2/topography/temp_q_lr_topo/")
+```
+
+### RASP
+
+```{python}
+models = ["../Generators/paper2/topography/temp_q_hr/", "../Generators/paper2/topography/temp_q_wrong_topo/","../Generators/paper2/topography/temp_q_lr_topo/"]
+modNm = ["HR","Wrong_HR","LR"]
+
+ds1 = NetCDFSR(coarse, fine[:,(3,4),...], inv_reg.unsqueeze(0), device=device)
+ds2 = NetCDFSR(coarse, fine[:,(3,4),...], inv_diff.unsqueeze(0), device=device)
+ds3 = NetCDFSR(coarse, fine[:,(3,4),...], inv_lr.unsqueeze(0), device=device)
+
+res_t = make_rapsd(models, modNm, [ds1,ds2,ds3], [0,0,0,0])
+#plt.savefig("Topography_Comp_Temp.png", dpi = 400)
+res_q = make_rapsd(models, modNm, [ds1,ds2,ds3], [1,1,1,1])
+#plt.savefig("Topography_Comp_Humid.png", dpi = 400)
+```
+
+```{r}
+library(data.table)
+library(ggplot2)
+dat <- py$res_t
+t_ls <- list()
+for(nm in names(dat)){
+  temp <- matrix(unlist(dat[[nm]]), ncol = 64, byrow = T)
+  t_med <- colMedians(temp)
+  t_iqr <- colQuantiles(temp, probs = c(0.25,0.75))
+  t1 <- as.data.table(cbind(t_med, t_iqr))
+  t_ls[[nm]] <- t1
+}
+
+dat2 <- rbindlist(t_ls, idcol = "Model")
+dat2[,FreqBand := rep(1:64, length(dat))]
+dat2[,Var := "Temperature"]
+dat_t <- dat2
+
+dat <- py$res_q
+t_ls <- list()
+for(nm in names(dat)){
+  temp <- matrix(unlist(dat[[nm]]), ncol = 64, byrow = T)
+  t_med <- colMedians(temp)
+  t_iqr <- colQuantiles(temp, probs = c(0.25,0.75))
+  t1 <- as.data.table(cbind(t_med, t_iqr))
+  t_ls[[nm]] <- t1
+}
+dat2 <- rbindlist(t_ls, idcol = "Model")
+
+dat2[,FreqBand := rep(1:64, length(dat))]
+dat2[,Var := "Humid"]
+dat_q <- dat2
+
+dat2 <- rbind(dat_t,dat_q)
+
+#dat2[,Model := factor(Model, levels = c("NoFS","CRPS50","CRPS20"))]
+
+ggplot(dat2, aes(x = FreqBand, y = t_med, col = Model)) +
+  geom_line(linewidth = 1) +
+  geom_ribbon(aes(ymin = `25%`, ymax = `75%`, fill = Model), alpha = 0.2, linetype = 0)+
+  scale_colour_manual(values = c("darkgreen","coral","darkgoldenrod"),aesthetics = c("colour","fill")) +
+  geom_hline(yintercept = 1) +
+  geom_vline(xintercept = 16, col = "grey30", linetype = "dashed", size = 1)+
+  theme_bw()+
+  facet_wrap(~ Var) +
+  ylab("Standardised Amplitude") +
+  xlab("Wavenumber") 
+
+ggsave("paper2_figs/HR_Topography.png", height = 5, width = 8, dpi = 400)
+```
+
+## Load Data
+
+```{python}
+data_folder = "../Data/ds_wind_full/"
+
+cond_fields = xr.open_dataset(data_folder + "coarse_test.nc", engine="netcdf4")
+fine_fields = xr.open_dataset(data_folder + "fine_test.nc", engine="netcdf4")
+cf2 = xr.open_dataset("../Data/ds_all_vars/" + "coarse_test.nc", engine="netcdf4")
+coarse_allvars = torch.from_numpy(cf2.to_array().to_numpy()).transpose(0, 1)
+fine_allvars = torch.from_numpy(xr.open_dataset("../Data/ds_all_vars/" + "fine_test.nc", engine="netcdf4").to_array().to_numpy()).transpose(0, 1)
+
+coarse = torch.from_numpy(cond_fields.to_array().to_numpy()).transpose(0, 1)
+fine = torch.from_numpy(fine_fields.to_array().to_numpy()).transpose(0, 1)
+inv_reg = torch.load("../Data/ds_all_vars/" + "hr_topo.pt")
+inv_diff = torch.load(data_folder + "hr_topo_diffloc.pt")
+inv_lr = torch.load(data_folder + "lr_topo.pt")
+
+inv_reg = torch.squeeze(inv_reg)
+invariant = xr.open_dataset(data_folder + "DEM_Crop.nc", engine = "netcdf4")
+invariant = torch.squeeze(torch.from_numpy(invariant.to_array().to_numpy()))
+
+```
+
+## Plot Invariant
+
+```{python}
+plt.close()
+plt.imshow(inv_reg)
+plt.show()
+plt.close()
+plt.imshow(inv_diff)
+plt.show()
+plt.close()
+plt.imshow(inv_lr)
+plt.show()
+```
+
+## RALSD Comparison
+
+```{python}
+#G_good = mlflow.pytorch.load_model("../Generators/final_gens/wind_S_crps_lower_noise/")
+G_good = mlflow.pytorch.load_model("../Generators/paper2/topography/wind/hr_topo_allvars/")
+G_diff = mlflow.pytorch.load_model("../Generators/paper2/topography/wind/wrong_topo/")
+G_lr = mlflow.pytorch.load_model("../Generators/paper2/topography/wind/lr_topo/")
+```
+
+```{python}
+def make_rapsd(models, modNm, datasets, pred_num):
+  res = dict()
+  for i in range(len(models)):
+      print("Analysing model",modNm[i])
+      G = mlflow.pytorch.load_model(models[i])
+      dataloader = torch.utils.data.DataLoader(
+          dataset=datasets[i], batch_size=6, shuffle=True
+      )
+      
+      RALSD = calc_ralsd(G, dataloader,pred_num[i])
+      # ral = np.mean(RALSD,axis = 0)
+      # sdral = np.std(RALSD,axis = 0)
+      res[modNm[i]] = RALSD
+  
+  # plt.close()
+  # cols = ['orange','blue','red','green']
+  # for i,nm in enumerate(modNm):
+  #     plt.plot(res[nm][:,0], label = nm, color = cols[i])
+  #     plt.fill_between(range(64),res[nm][:,0]+res[nm][:,1],res[nm][:,0]-res[nm][:,1], alpha = 0.1, color = cols[i])
+  # plt.hlines(y = 1, xmin=0, xmax=64, color = "black")
+  # plt.xlabel("Wavenumber")
+  # plt.ylabel("Standardised Amplitude")
+  # plt.title(title)
+  # plt.legend()
+  # plt.show()
+  return(res)
+
+```
+
+```{python}
+"../Generators/final_gens/wind_S_crps_lower_noise/"
+models = ["../Generators/final_gens/wind_S_crps_lower_noise/", "../Generators/paper2/topography/wind/wrong_topo/","../Generators/paper2/topography/wind/lr_topo/"]
+modNm = ["HR","Wrong_HR","LR"]
+
+ds1 = NetCDFSR(coarse, fine, invariant.unsqueeze(0), device=device)
+ds2 = NetCDFSR(coarse, fine, inv_diff.unsqueeze(0), device=device)
+ds3 = NetCDFSR(coarse, fine, inv_lr.unsqueeze(0), device=device)
+
+res_u = make_rapsd(models, modNm, [ds1,ds2,ds3], [0,0,0,0])
+res_v = make_rapsd(models, modNm, [ds1,ds2,ds3], [1,1,1,1])
+```
+
+```{r}
+dat <- py$res_u
+t_ls <- list()
+for(nm in names(dat)){
+  temp <- matrix(unlist(dat[[nm]]), ncol = 64, byrow = T)
+  t_med <- colMedians(temp)
+  t_iqr <- colQuantiles(temp, probs = c(0.25,0.75))
+  t1 <- as.data.table(cbind(t_med, t_iqr))
+  t_ls[[nm]] <- t1
+}
+
+dat2 <- rbindlist(t_ls, idcol = "Model")
+dat2[,FreqBand := rep(1:64, length(dat))]
+dat2[,Var := "Zonal"]
+dat_u <- dat2
+
+dat <- py$res_v
+t_ls <- list()
+for(nm in names(dat)){
+  temp <- matrix(unlist(dat[[nm]]), ncol = 64, byrow = T)
+  t_med <- colMedians(temp)
+  t_iqr <- colQuantiles(temp, probs = c(0.25,0.75))
+  t1 <- as.data.table(cbind(t_med, t_iqr))
+  t_ls[[nm]] <- t1
+}
+
+dat2 <- rbindlist(t_ls, idcol = "Model")
+dat2[,FreqBand := rep(1:64, length(dat))]
+dat2[,Var := "Meridional"]
+dat_v <- dat2
+
+dat2 <- rbind(dat_u,dat_v,dat_t,dat_q)
+
+#dat2[,Model := factor(Model, levels = c("NoFS","CRPS50","CRPS20"))]
+
+ggplot(dat2, aes(x = FreqBand, y = t_med, col = Model)) +
+  geom_line(linewidth = 1) +
+  geom_ribbon(aes(ymin = `25%`, ymax = `75%`, fill = Model), alpha = 0.2, linetype = 0)+
+  geom_hline(yintercept = 1) +
+  geom_vline(xintercept = 16, col = "grey30", linetype = "dashed", size = 1)+
+  scale_colour_manual(values = c("darkgreen","coral","darkgoldenrod"),aesthetics = c("colour","fill")) +
+  theme_bw()+
+  facet_wrap(~ Var) +
+  ylab("Standardised Amplitude") +
+  xlab("Wavenumber") 
+
+ggsave("paper2_figs/HR_Topography.png", height = 5, width = 8, dpi = 400)
+```
+
+```{python}
+
+def generate_x(G,dataloader, n_batch = 50):
+  gen_out = []
+  for i, data in enumerate(dataloader):
+    if(i > n_batch):
+        break
+    gen_out.append(G(data[0].to("cuda:0").float(),data[2].to("cuda:0").float()).cpu().detach())
+  gen_out = torch.cat(gen_out, dim = 0)
+  return(gen_out)
+
+```
+
+```{python}
+G = mlflow.pytorch.load_model("../Generators/paper2/topography/hr_topo/Generator_245/")
+ds2 = NetCDFSR(coarse, fine, inv_diff.unsqueeze(0), device=device)
+dataloader = torch.utils.data.DataLoader(
+          dataset=ds2, batch_size=6, shuffle=True)
+      
+gens = generate_x(G,dataloader,50)
+
+for i in range(4):
+  plt.close()
+  plt.imshow(gens[i,0,...])
+  plt.show()
+```
+
+```{python}
+G = mlflow.pytorch.load_model("../Generators/paper2/topography/wrong_topo/")
+ds2 = NetCDFSR(coarse, fine, inv_reg.unsqueeze(0), device=device)
+dataloader = torch.utils.data.DataLoader(
+          dataset=ds2, batch_size=6, shuffle=True)
+      
+gens = generate_x(G,dataloader,50)
+
+for i in range(4):
+  plt.close()
+  plt.imshow(gens[i,0,...])
+  plt.show()
+```
+
+## Location 2
+
+```{r}
+library(terra)
+
+lmask <- rast("../Data/hr_invariant/wrf_luindex.nc")
+plot(lmask[[3]])
+
+xland <- rast("../Data/hr_invariant/wrf_xland.nc")
+plot(xland[[3]])
+
+lakemask <- rast("../Data/hr_invariant/lakemask_proj.nc")
+plot(lakemask)
+writeRaster(lakemask[[3]],"../Data/hr_invariant/Temp_lakemsk.tif")
+```
+
+```{python}
+data_folder = "../Data/wind_loc2/"
+
+cond_fields = xr.open_dataset(data_folder + "withcape/coarse_test.nc", engine="netcdf4")
+fine_fields = xr.open_dataset(data_folder + "withcape/fine_test.nc", engine="netcdf4")
+
+coarse = torch.from_numpy(cond_fields.to_array().to_numpy()).transpose(0, 1)
+fine_uv = torch.from_numpy(fine_fields.to_array().to_numpy()).transpose(0, 1)
+inv_loc2 = torch.load(data_folder + "withcape/hr_topo_loc2.pt")
+
+G_uv = mlflow.pytorch.load_model("../Generators/paper2/location2/wind/withcape/")
+batchsize = 6
+inv_in = inv_loc2.repeat(int(batchsize),1,1,1).to(device).float()
+
+
+
+data_folder = "../Data/loc2_all/"
+
+cond_fields = xr.open_dataset(data_folder + "coarse_test.nc", engine="netcdf4")
+fine_fields = xr.open_dataset(data_folder + "fine_test_tq.nc", engine="netcdf4")
+inv_reg = torch.load("../Data/loc2_all/hr_topo_loc2.pt")
+inv_reg = inv_reg.unsqueeze(0)
+
+coarse_tq = torch.from_numpy(cond_fields.to_array().to_numpy()).transpose(0, 1)
+fine_tq = torch.from_numpy(fine_fields.to_array().to_numpy()).transpose(0, 1)
+
+G_tq = mlflow.pytorch.load_model("../Generators/paper2/location2/temp_humid_2fixed/")
+G_q = mlflow.pytorch.load_model("../Generators/paper2/location2/humid_topolu/")
+inv_loc2_2fix = torch.load(data_folder + "hr_topo_lu.pt")
+inv_in_2f = inv_loc2_2fix.repeat(int(batchsize),1,1,1).to(device).float()
+
+
+plot_realisations(G_tq, coarse_tq, fine_tq, inv_loc2_2fix, 4, coarse_num = 4, fine_num = 1, pred_num = 1)
+############################
+fine_fields = xr.open_dataset(data_folder + "fine_test_p.nc", engine="netcdf4")
+fine_p = torch.from_numpy(fine_fields.to_array().to_numpy()).transpose(0, 1)
+which_zero = torch.sum(fine_p, dim = (1,2,3))
+fine_p = fine_p[which_zero > 4000 ,...]
+coarse_p = coarse_tq[which_zero > 4000,...]
+
+G_p = mlflow.pytorch.load_model("../Generators/paper2/location2/precip_topolu/")
+plot_realisations(G_p, coarse_p, fine_p, inv_2f, 4, coarse_num = 2, fine_num = 0, pred_num = 0)
+```
+
+### Loc2 Rank Hist
+
+```{python}
+mods = ["../Generators/paper2/location2/precip_topolu/","../Generators/paper2/location2/wind/withcape/","../Generators/paper2/location2/temp/","../Generators/paper2/location2/humid_topolu/"]
+random_samps = torch.randint(0, 1000, (50, ))
+
+def load_data(data_folder, c_name, f_name, inv_nm = "hr_topo_loc2.pt", pred_num = None, precip = False):
+  cond_fields = xr.open_dataset(data_folder + c_name, engine="netcdf4")
+  fine_fields = xr.open_dataset(data_folder + f_name, engine="netcdf4")
+  coarse = torch.from_numpy(cond_fields.to_array().to_numpy()).transpose(0, 1)
+  fine = torch.from_numpy(fine_fields.to_array().to_numpy()).transpose(0, 1)
+  if(pred_num is not None):
+    fine = fine[:,pred_num,...].unsqueeze(1)
+  if(precip):
+    which_zero = torch.sum(fine, dim = (1,2,3))
+    fine = fine[which_zero > 6000 ,...]
+    coarse = coarse[which_zero > 6000,...]
+  invariant = torch.load(data_folder + inv_nm)
+  if(len(invariant.shape) == 2):
+    invariant = invariant.unsqueeze(0)
+  return(coarse, fine, invariant)
+
+dat = [load_data("../Data/loc2_all/","coarse_test.nc", "fine_test_p.nc",inv_nm = "hr_topo_lu.pt", precip = True),load_data("../Data/wind_loc2/withcape/","coarse_test.nc","fine_test.nc"),load_data("../Data/loc2_all/","coarse_test.nc","fine_test_tq.nc",pred_num = 0),load_data("../Data/loc2_all/","coarse_test.nc","fine_test_tq.nc",inv_nm = "hr_topo_lu.pt", pred_num = 1)]
+
+temp_samp = torch.randint(0, 8760, (200, ))
+rsamps = [torch.randint(0, 1000, (200, )),temp_samp,temp_samp,temp_samp]
+
+rh_res = [rankhist_preds(mlflow.pytorch.load_model(x), coarse = d[0], fine = d[1], invariant = d[2], random = r) for (x,d,r) in zip(mods,dat,rsamps)]
+
+```
+
+```{r}
+library(data.table)
+library(ggplot2)
+library(reticulate)
+temp <- py$rh_res
+rh_dat <- data.table(var1 = hist(temp[[1]], plot = F, breaks = 100)$counts,
+                     var2 = hist(temp[[2]], plot = F, breaks = 100)$counts,
+                     var3 = hist(temp[[3]], plot = F, breaks = 100)$counts,
+                     var4 = hist(temp[[4]], plot = F, breaks = 100)$counts)
+
+rh_dat[,rank := 1:100]
+
+fwrite(rh_dat,"Paper2_rankhist.csv")
+rh_dat[,`:=`(cdf_v1 = cumsum(var1),
+             cdf_v2 = cumsum(var2),
+             cdf_v3 = cumsum(var3),
+             cdf_v4 = cumsum(var4))]
+rh_dat[, cdf_unif := cumsum(rep(sum(var1)/length(var1),length(var1)))]
+pdat <- rh_dat[,.(cdf_v1,cdf_v2,cdf_v3,cdf_v4,cdf_unif)]
+pdat[,rank := seq_along(cdf_unif)]
+temp <- as.data.table(matrix(rep(0,ncol(pdat)),nrow = 1))
+setnames(temp,names(pdat))
+pdat <- rbind(temp,pdat)
+setnames(pdat,c("Precip","Zonal","Temp","Humid","Unif","rank"))
+pdat <- melt(pdat, id.vars = "rank", value.name = "CDF", variable.name = "Model")
+pdat[,CDF := CDF/max(CDF)]
+pdat[,rank := rank/max(rank)]
+
+ggplot(pdat[!Model %in%  c("Unif"),], aes(x = rank, y = CDF, col = Model)) +
+  geom_line(linewidth = 1) +
+  geom_line(data = pdat[Model == "Unif",], aes(x = rank, y = CDF, col = "Uniform"), linetype = "dashed", col = "black", linewidth = 0.5)+
+  scale_color_manual(values = c("turquoise", "darkred","darkgreen","darkblue")) +
+  theme_bw() +
+  xlab("Standardised Rank")
+ggsave("Location2_RankHist_2f.png")
+```
+
+### Loc2 RASP
+
+```{python}
+models = ["../Generators/paper2/location2/wind/withcape/","../Generators/paper2/location2/temp/","../Generators/paper2/location2/humid_topolu/", "../Generators/paper2/location2/precip/"]
+modNm = ["Wind","Temperature","Humidity","Precip"]
+
+data_folder = "../Data/loc2_all/"
+
+dat = [load_data("../Data/wind_loc2/withcape/","coarse_test.nc","fine_test.nc"),load_data("../Data/loc2_all/","coarse_test.nc","fine_test_tq.nc",pred_num = 0),load_data("../Data/loc2_all/","coarse_test.nc","fine_test_tq.nc",inv_nm = "hr_topo_lu.pt", pred_num = 1), load_data("../Data/loc2_all/","coarse_test.nc", "fine_test_p.nc",inv_nm = "hr_topo_loc2.pt", precip = True)]
+# cond_fields = xr.open_dataset(data_folder + "coarse_test.nc", engine="netcdf4")
+# fine_fields = xr.open_dataset(data_folder + "fine_test_tq.nc", engine="netcdf4")
+# coarse = torch.from_numpy(cond_fields.to_array().to_numpy()).transpose(0, 1)
+# fine = torch.from_numpy(fine_fields.to_array().to_numpy()).transpose(0, 1)
+inv_reg = torch.load(data_folder + "hr_topo_loc2.pt")
+inv_2f = torch.load(data_folder + "hr_topo_lu.pt")
+inv_2x = inv_reg.repeat(2,1,1)
+
+ds_ls = [NetCDFSR(x[0],x[1], x[2], device = device) for x in dat]
+ds1 = NetCDFSR(coarse, fine, inv_2x, device=device)
+ds2 = NetCDFSR(coarse, fine, inv_2f, device=device)
+
+
+res_all = make_rapsd(models, modNm, ds_ls, [0,0,0,0], "RASP")
+plt.savefig("Loc2_RASP.png", dpi = 400)
+```
+
+```{r}
+library(data.table)
+library(ggplot2)
+library(reticulate)
+library(matrixStats)
+
+dat <- py$res_all
+
+t_ls <- list()
+for(nm in names(dat)){
+  temp <- matrix(unlist(dat[[nm]]), ncol = 64, byrow = T)
+  t_med <- colMedians(temp)
+  t_iqr <- colQuantiles(temp, probs = c(0.25,0.75))
+  t1 <- as.data.table(cbind(t_med, t_iqr))
+  t_ls[[nm]] <- t1
+}
+
+dat2 <- rbindlist(t_ls, idcol = "Model")
+
+dat2[,FreqBand := rep(1:64, length(dat))]
+#dat2[,Model := factor(Model, levels = c("NoFS","CRPS50","CRPS20"))]
+
+ggplot(dat2, aes(x = FreqBand, y = t_med, col = Model)) +
+  geom_line(linewidth = 1) +
+  geom_ribbon(aes(ymin = `25%`, ymax = `75%`, fill = Model), alpha = 0.1, linetype = 1)+
+  scale_colour_manual(values = c("darkgreen","darkblue","darkred","coral"),aesthetics = c("colour","fill")) +
+  geom_hline(yintercept = 1) +
+  geom_vline(xintercept = 16, col = "grey30", linetype = "dashed", size = 1)+
+  theme_bw()+
+  facet_wrap(~ Model) +
+  ylab("Standardised Amplitude") +
+  xlab("Wavenumber") 
+
+```
+
+### Checkout Precip
+
+```{python}
+G = mlflow.pytorch.load_model("../Generators/paper2/location2/precip/")
+plot_realisations(G, dat[3][0], dat[3][1], dat[3][2], 4, coarse_num = 2, fine_num = 0, svals = stand_vals['precip'])
+```
+
+### Bulk Stats 2Fixed
+
+```{python}
+def generate_batch(G, coarse, invariant, niter = 500):
+  batchsize = 6
+  inv_in = invariant.repeat(int(batchsize),1,1,1).to(device).float()
+  all_gens = []
+  for j in range(500):
+    if(j % 100 == 0):
+      print(j)
+    coarse_in = coarse[(j*batchsize):((j+1)*batchsize),...].to(device).float()
+    gen_out = G(coarse_in, inv_in).cpu().detach()
+    all_gens.append(gen_out)
+    del gen_out
+  sr = torch.cat(all_gens, 0)
+  return(sr)
+
+G = mlflow.pytorch.load_model("../Generators/paper2/location2/humid_reg_topo/")
+sr_reg = generate_batch(G, coarse_tq, inv_reg)
+
+G = mlflow.pytorch.load_model("../Generators/paper2/location2/humid_2xtopo/")
+sr_2x = generate_batch(G, coarse_tq, inv_2x)
+
+G = mlflow.pytorch.load_model("../Generators/paper2/location2/humid_topolu/")
+sr_2f = generate_batch(G, coarse_tq, inv_2f)
+
+quantiles = [0.01, 0.5, 0.99]
+sr_reg_quant = [np.quantile(sr_reg, q, axis = 0) for q in quantiles]
+sr_2x_quant = [np.quantile(sr_2x, q, axis = 0) for q in quantiles]
+sr_2f_quant = [np.quantile(sr_2f, q, axis = 0) for q in quantiles]
+hr_quant = [np.quantile(fine_tq[0:3000,...], q, axis = 0) for q in quantiles]
+
+plt.close()
+fig = plt.figure()
+grid = ImageGrid(fig, 111,
+                nrows_ncols = (2,2),
+                axes_pad = 0.05,
+                cbar_location = "right",
+                cbar_mode="single",
+                cbar_size="5%",
+                cbar_pad=0.05,
+                share_all = True)
+
+grid[0].get_yaxis().set_ticks([])
+grid[0].get_xaxis().set_ticks([])
+col = "viridis"
+quant_num = 2
+var = 0
+value_range = np.quantile(np.array([hr_quant[quant_num][1,...],sr_2f_quant[quant_num][var,...]]),[0.001,0.99])
+imc = grid[0].imshow(sr_reg_quant[quant_num][var,...], cmap = col, interpolation='nearest',
+        vmin = value_range[0], vmax = value_range[1], extent=None)
+grid[0].set_title("Regular")
+imc = grid[1].imshow(sr_2x_quant[quant_num][var,...], cmap = col, interpolation='nearest',
+        vmin = value_range[0], vmax = value_range[1], extent=None)
+grid[1].set_title("Rep Topo")
+imc = grid[2].imshow(sr_2f_quant[quant_num][var,...], cmap = col, interpolation='nearest',
+        vmin = value_range[0], vmax = value_range[1], extent=None)
+grid[2].set_xlabel("Topo LU")
+imc = grid[3].imshow(hr_quant[quant_num][1,...], cmap = col, interpolation='nearest',
+        vmin = value_range[0], vmax = value_range[1], extent=None)
+grid[3].set_xlabel("WRF")
+
+plt.colorbar(imc, cax=grid.cbar_axes[0])
+plt.show()
+plt.savefig("Humidity_Comp_99.png", dpi = 400)
+
+
+```
+
+```{python}
+def plot_row(fine, coarse, inv, G, svals, plets, c_num, f_num, quant = 0.5):
+  col = 'viridis'
+  batchsize = 6
+  fine_avg = torch.mean(fine[:,f_num,...], dim = (1,2))
+  qs = np.quantile(fine_avg, quant)
+  i_1 = torch.argmin(torch.abs(fine_avg - qs))
+  
+  vrng = np.quantile(un_stand(fine[i_1,f_num,...],svals),[0.01,0.999])
+  axes[plets[0]].imshow(torch.flipud(un_stand(fine[i_1,f_num,...],svals)), cmap = col, interpolation='nearest', vmin = vrng[0], vmax = vrng[1], extent=None)
+  axes[plets[1]].imshow(torch.flipud(un_stand(coarse[i_1,c_num,...],svals)), cmap = col, interpolation='nearest', vmin = vrng[0], vmax = vrng[1], extent=None)
+  
+  coarse_in = coarse[i_1,...]
+  coarse_in = coarse_in.unsqueeze(0).repeat(int(batchsize),1,1,1).to(device).float()
+  inv_in = inv.repeat(int(batchsize),1,1,1).to(device).float()
+  gen_out = un_stand(G(coarse_in, inv_in).cpu().detach(),svals)
+  for i,anm in enumerate(plets[2:5]):
+    imc = axes[anm].imshow(torch.flipud(gen_out[i,f_num,...]), cmap = col, interpolation='nearest', vmin = vrng[0], vmax = vrng[1], extent=None)
+  gen_out = G(coarse_in, inv_in).cpu().detach()
+  for z in range(24):
+    fine_gen = G(coarse_in,inv_in)
+    gen_out = torch.cat([gen_out,fine_gen.cpu().detach()],0)
+    del fine_gen
+  
+  axes[plets[5]].imshow(torch.flipud(torch.std(gen_out, 0)[f_num,...]), cmap = "magma", interpolation='nearest',extent=None)
+              
+  fig.colorbar(imc, cax = axes[plets[6]])
+
+#plt.rcParams["figure.figsize"] = (8,8)
+plt.close()
+fig, axes = plt.subplot_mosaic("ABCDEF7;GHIJKL8;MNOPQR9;123456?",width_ratios = [1,1,1,1,1,1,0.1], gridspec_kw = {"wspace": 0.05, "hspace": 0.1})
+
+akeys = list(axes.keys())
+for ax in akeys:
+    axes[ax].set_xticks([])
+    axes[ax].set_yticks([])
+    
+plot_row(fine_tq, coarse_tq, inv_loc2_2fix, G_tq, stand_vals['temp'], ["A","B","C","D","E","F", "7"], c_num = 3, f_num = 0, quant = 0.51)
+
+plot_row(fine_tq[:,1,...].unsqueeze(1), coarse_tq,inv_loc2_2fix,  G_q, stand_vals['q'], ["G","H","I","J","K","L","8"], c_num = 4, f_num = 0, quant = 0.8)
+
+plot_row(fine_uv, coarse,inv_loc2, G_uv, stand_vals['u10'], ["M","N","O","P","Q","R","9"], c_num = 0, f_num = 0)
+
+#plot_row(fine_uv, coarse, G_uv, stand_vals['v10'], ["S","T","U","V","W","X"], c_num = 1, f_num = 1)
+
+plot_row(fine_p, coarse_p,inv_loc2, G_p, stand_vals['precip'], ["1","2","3","4","5","6","?"], c_num = 2, f_num = 0, quant = 0.8)
+axes["A"].set_ylabel("Temp")
+axes["G"].set_ylabel("Humid")
+axes["M"].set_ylabel("Zonal")
+#axes["S"].set_ylabel("Merid")
+axes["1"].set_ylabel("Precip")
+axes["A"].set_title("WRF")
+axes["B"].set_title("ERA5")
+axes["C"].set_title("Gen 1")
+axes["D"].set_title("Gen 2")
+axes["E"].set_title("Gen 3")
+axes["F"].set_title("Cond. Std")
+    
+plt.show()
+
+plt.savefig("paper2_figs/Loc2_Allvars_2fix.png", dpi = 400)
+```
+
+```{python}
+G = mlflow.pytorch.load_model("../Generators/paper2/location2/withcape/")
+ds2 = NetCDFSR(coarse, fine, inv_loc2.unsqueeze(0), device=device)
+dataloader = torch.utils.data.DataLoader(
+          dataset=ds2, batch_size=6, shuffle=True)
+          
+gens = generate_x(G,dataloader,50)
+```
+
+```{python}
+num_samples=4; num_instances=4; out_fn=None; plot_stride=1; num_frames = 1
+
+num_rows = num_samples*num_frames
+num_cols = 2+num_instances
+
+plt.close()
+figsize = (num_cols*4, num_rows*4)
+plt.figure(figsize=figsize)
+
+gs = gridspec.GridSpec(num_rows, num_cols, wspace=0.05, hspace=0.05)
+
+#value_range = batch_gen.decoder.value_range
+
+batchsize = num_instances
+inv_in = inv_loc2.repeat(int(batchsize),1,1,1).to(device).float()
+import random
+random.seed(3)
+pred = [1,1,0,0]
+vrng = np.quantile(fine[0:1000,...],[0.05,0.97])
+for s in range(num_samples):
+    sample = random.randint(0,8000)
+    for t in range(num_frames):
+        i = s*num_frames+t
+        plt.subplot(gs[i,0])
+        plot_img(torch.flipud(fine[sample,pred[s],...]),value_range = vrng)
+        if(s == 3):
+            plt.xlabel("WRF", fontsize=10)
+        plt.subplot(gs[i,1])
+        plot_img(torch.flipud(coarse[sample,pred[s],...]), value_range = vrng)
+        if(s == 3):
+            plt.xlabel("ERA5", fontsize=10)
+        for k in range(num_instances):
+            coarse_in = coarse[sample,...]
+            coarse_in = coarse_in.unsqueeze(0).repeat(int(batchsize),1,1,1).to(device).float()
+
+            gen_out = G(coarse_in, inv_in).cpu().detach()
+            j = 2+k
+            if k == (num_instances - 1):
+              for z in range(24):
+                fine_gen = G(coarse_in,inv_in)
+                gen_out = torch.cat([gen_out,fine_gen.cpu().detach()],0)
+                del fine_gen
+
+              plt.subplot(gs[i,j])
+              plot_img(torch.flipud(torch.std(gen_out, 0)[pred[s],...]),cmap = "magma", value_range=(0,0.7)) 
+              if(s == 3):
+                plt.xlabel("Cond. StDev", fontsize=10)
+            else:
+              plt.subplot(gs[i,j])
+              plot_img(torch.flipud(gen_out[k,pred[s],...]),value_range = vrng)
+              if(s == 3):
+                plt.xlabel("Gen {}".format(k+1), fontsize=10)
+            
+plt.show()
+
+plt.savefig("paper2_figs/location2_realisations.png", bbox_inches = "tight", dpi = 400)
+```
+
+```{python}
+ds2 = NetCDFSR(coarse, fine, inv_loc2.unsqueeze(0), device=device)
+make_rapsd(["../Generators/paper2/location2/withcape/"], ["Location2"], [ds2], [1,1,1,1], "V")
+plt.savefig("paper2_figs/loc2_rasp.png", bbox_inches = "tight", dpi = 400)
+```

@@ -59,6 +59,9 @@ meanmat <- as.matrix(d2)
 image(meanmat)
 #meanmat <- meanmat + 5
 
+dem_weight <- 10
+dem_temp <- dem * dem_weight
+
 for(numrast in 1:500){
   if(numrast %% 100 == 0) cat("iteration",numrast,"\n")
   distr1 <- mvrnorm(n = nsamp,mu = rep(1,128),Sigma = sig2)
@@ -66,7 +69,7 @@ for(numrast in 1:500){
   #binmask <- matrix(rbinom(128^2, size = 1, prob = 0.35),128)
   #distr1[binmask == 1] <- distr2[binmask == 1]
   #mat2 <- distr1*meanmat
-  mat2 <- meanmat + distr1
+  mat2 <- meanmat + distr1 + dem_temp
   mat2 <- mat2^2
   rfine <- rast(mat2)
   matds <- down_sample_image(mat2,factor = 8, gaussian_blur = T)
@@ -82,18 +85,19 @@ for(numrast in 1:500){
 plot(outrast[[5]])
 farr <- as.array(outrast)
 carr <- as.array(outcoarse)
-farr2 <- (farr - mean(farr))/sd(farr)
-carr2 <- (carr - mean(carr))/sd(carr)
-
+farr2 <- (farr)/sd(farr) + 5
+carr2 <- (carr)/sd(carr) + 5
+np$save("../Data/synthetic/spat_complexity/W10/fine_stochastic.npy",farr2)
+np$save("../Data/synthetic/spat_complexity/W10/coarse_stochastic.npy",carr2)
 
 library(reticulate)
 np <- import("numpy")
-np$save("../Data/synthetic/standardised/fine_stochastic.npy",farr2)
-np$save("../Data/synthetic/standardised/coarse_stochastic.npy",carr2)
 
-#dem <- np$load("Data/Synth_DEM/dem_crop.npy")
+
+dem <- np$load("../Data/synthetic/SynthDEM/dem_crop.npy")
 image(dem)
 dem_weight <- 10
+dem_temp <- dem * dem_weight
 ##generate single test set
 # xaxis <- seq(curr_samp[1],curr_samp[2], length.out = 128)
 # yaxis <- seq(curr_samp[1],curr_samp[2], length.out = 128)
@@ -114,7 +118,7 @@ for(numrast in 1:8000){
   #distr2 <- mvrnorm(n = nsamp,mu = rep(5,128),Sigma = sig2)
   #binmask <- matrix(rbinom(128^2, size = 1, prob = 0.35),128)
   #distr1[binmask == 1] <- distr2[binmask == 1]
-  mat2 <- meanmat + distr1
+  mat2 <- meanmat + distr1 + dem_temp
   mat2 <- mat2^2
   rfine <- rast(mat2)
   matds <- down_sample_image(mat2,factor = 8, gaussian_blur = T)
@@ -135,20 +139,21 @@ plot(outcoarse[[43]])
 
 
 farr <- as.array(outrast)
-farr2 <- (farr - mean(farr))/sd(farr)
+farr2 <- (farr)/sd(farr)
+farr2 <- farr2 + 5
 carr <- as.array(outcoarse)
-carr2 <- (carr - mean(carr))/sd(carr)
+carr2 <- (carr)/sd(carr) + 5
 
 library(reticulate)
 np <- import("numpy")
-np$save("../Data/synthetic/standardised/fine_train.npy",farr2[,,1:5000])
-np$save("../Data/synthetic/standardised/coarse_train.npy",carr2[,,1:5000])
+np$save("../Data/synthetic/spat_complexity/W10/fine_train.npy",farr2[,,1:5000])
+np$save("../Data/synthetic/spat_complexity/W10/coarse_train.npy",carr2[,,1:5000])
 
-np$save("../Data/synthetic/standardised/fine_test.npy",farr2[,,5001:7000])
-np$save("../Data/synthetic/standardised/coarse_test.npy",carr2[,,5001:7000])
+np$save("../Data/synthetic/spat_complexity/W10/fine_test.npy",farr2[,,5001:7000])
+np$save("../Data/synthetic/spat_complexity/W10/coarse_test.npy",carr2[,,5001:7000])
 
-np$save("../Data/synthetic/standardised/fine_val_reg.npy",farr2[,,7001:8000])
-np$save("../Data/synthetic/standardised/coarse_val_reg.npy",carr2[,,7001:8000])
+np$save("../Data/synthetic/spat_complexity/W10/fine_val_reg.npy",farr2[,,7001:8000])
+np$save("../Data/synthetic/spat_complexity/W10/coarse_val_reg.npy",carr2[,,7001:8000])
 
 png("Rank_Hists.png",width = 8, height = 4, units = "in", res = 600)
 par(mfrow = c(1,3))

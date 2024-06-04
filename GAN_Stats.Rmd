@@ -12,9 +12,9 @@ knitr::opts_chunk$set(echo = FALSE)
 library(reticulate)
 library(ggplot2)
 library(data.table)
-mod_name = "Wind, 4 covaraties, just content loss"
+mod_name = "Wind, 4 covaraties, noise as covariate"
 epoch = "170"
-gen_location <- "../Generators/wind_stochastic_nocrps_all/"
+gen_location <- "../Generators/stochastic_paper/wind_noisecov_all/"
 data_loc <- "../Data/ds_wind_full/"
 batchsize <- 4
 var_name <- "Wind"

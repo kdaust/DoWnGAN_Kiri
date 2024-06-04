@@ -1,0 +1,1074 @@
+---
+title: "Paper 2"
+author: "Kiri Daust"
+format: html
+editor: visual
+jupyter: python3
+---
+
+```{python}
+import torch
+import numpy as np
+import scipy
+import mlflow
+from matplotlib import pyplot as plt
+from matplotlib import colorbar, colors, gridspec
+from mpl_toolkits.axes_grid1 import ImageGrid
+from DoWnGAN.helpers.analysis import plot_img
+from DoWnGAN.helpers.analysis import ralsd
+from DoWnGAN.helpers.analysis import calc_ralsd
+from DoWnGAN.helpers.analysis import rankhist_preds
+from DoWnGAN.GAN.dataloader import NetCDFSR
+import xarray as xr
+import random
+
+device = torch.device("cuda:0")
+
+def plot_realisations(G, coarse, fine, invariant, num_samples, coarse_num, fine_num, pred_num = 0, svals = [0,1]):
+  num_instances=4; out_fn=None; plot_stride=1; num_frames = 1
+  num_rows = num_samples*num_frames
+  num_cols = 2+num_instances
+  
+  plt.close()
+  figsize = (num_cols*4, num_rows*8)
+  plt.figure(figsize=figsize)
+  gs = gridspec.GridSpec(num_rows, num_cols, wspace=0.05, hspace=0.05)
+  batchsize = num_instances
+  inv_in = invariant.repeat(int(batchsize),1,1,1).to(device).float()
+  #random.seed(3.1415926535)
+  vrng = np.quantile(un_stand(fine[0:1000,...],svals),[0.01,0.99])
+  for s in range(num_samples):
+      sample = random.randint(0,1000)
+      for t in range(num_frames):
+          i = s*num_frames+t
+          plt.subplot(gs[i,0])
+          plot_img(un_stand(torch.flipud(fine[sample,fine_num,...]),svals),value_range = vrng)
+          if(s == num_samples-1):
+              plt.xlabel("WRF", fontsize=10)
+          plt.subplot(gs[i,1])
+          plot_img(un_stand(torch.flipud(coarse[sample,coarse_num,...]),svals), value_range = vrng)
+          if(s == num_samples-1):
+              plt.xlabel("ERA5", fontsize=10)
+          for k in range(num_instances):
+              coarse_in = coarse[sample,...]
+              coarse_in = coarse_in.unsqueeze(0).repeat(int(batchsize),1,1,1).to(device).float()
+  
+              gen_out = un_stand(G(coarse_in, inv_in).cpu().detach(),svals)
+              j = 2+k
+              
+              plt.subplot(gs[i,j])
+              plot_img(torch.flipud(gen_out[k,pred_num,...]),value_range = vrng)
+              if(s == num_samples-1):
+                plt.xlabel("Gen {}".format(k+1), fontsize=10)
+              
+  plt.show()
+  
+def plot_bulk(diff_list, stat_names, value_range = (-1,1), col = "RdBu"):
+  plt.close()
+  n_stat = len(diff_list)
+  fig = plt.figure()
+  grid = ImageGrid(fig, 111,
+                  nrows_ncols = (1,n_stat),
+                  axes_pad = 0.05,
+                  cbar_location = "right",
+                  cbar_mode="single",
+                  cbar_size="5%",
+                  cbar_pad=0.05)
+  
+  for ax in range(n_stat):
+    grid[ax].get_yaxis().set_ticks([])
+    grid[ax].get_xaxis().set_ticks([])
+  for ax in range(n_stat):
+    imc = grid[ax].imshow(np.flipud(diff_list[ax]), cmap = col, interpolation='nearest',
+            vmin = value_range[0], vmax = value_range[1], extent=None)
+    grid[ax].set_xlabel(stat_names[ax])
+ 
+  plt.colorbar(imc, cax=grid.cbar_axes[0])
+  plt.show()
+  
+  
+def plot_realisations2(G, coarse, fine, invariant, num_samples, coarse_num, fine_num, pred_num = 0):
+  plt.close()
+  n_stat = 6
+  batchsize = 6
+  col = "viridis"
+  fig = plt.figure()
+  grid = ImageGrid(fig, 111,
+                  nrows_ncols = (1,n_stat),
+                  axes_pad = 0.05,
+                  cbar_location = "right",
+                  cbar_mode="single",
+                  cbar_size="5%",
+                  cbar_pad=0.05)
+  
+  for ax in range(6):
+    grid[ax].get_yaxis().set_ticks([])
+    grid[ax].get_xaxis().set_ticks([])
+  vrng = np.quantile(fine[0:1000,...],[0.05,0.97])
+  random.seed(3.1415926535)
+  sample = random.randint(0,6000)
+  grid[0].imshow(torch.flipud(fine[sample,fine_num,...]), cmap = col, interpolation='nearest', vmin = vrng[0], vmax = vrng[1], extent=None)
+  grid[0].set_xlabel("WRF")
+  grid[1].imshow(torch.flipud(coarse[sample,coarse_num,...]), cmap = col, interpolation='nearest', vmin = vrng[0], vmax = vrng[1], extent=None)
+  grid[1].set_xlabel("ERA5")
+  
+  inv_in = invariant.repeat(int(batchsize),1,1,1).to(device).float()
+  coarse_in = coarse[sample,...]
+  coarse_in = coarse_in.unsqueeze(0).repeat(int(batchsize),1,1,1).to(device).float()
+  gen_out = G(coarse_in, inv_in).cpu().detach()
+  for ax in range(2,6):
+    imc = grid[ax].imshow(torch.flipud(gen_out[ax-2,pred_num,...]), cmap = col, interpolation='nearest', vmin = vrng[0], vmax = vrng[1], extent=None)
+    grid[ax].set_xlabel("Gen " + str(ax - 2))
+ 
+  plt.colorbar(imc, cax=grid.cbar_axes[0])
+  plt.show()
+ 
+stand_vals = {'precip': [0.16665935516357422, 0.6191030545071987], 'u10': [0.4949296712875366, 2.9046805461207272], 'v10': [0.9173138737678528, 3.2248344319743705], 'temp': [275.9396667480469, 8.873541483779487], 'q': [0.0045679472386837006, 0.002028651558482735]}
+
+def un_stand(x, s_vals):
+  return((x * s_vals[1]) + s_vals[0])
+```
+
+# Individual Variables
+
+### Temperature
+
+```{python}
+data_folder = "../Data/ds_all_vars/"
+cond_fields = xr.open_dataset(data_folder + "coarse_test.nc", engine="netcdf4")
+fine_fields = xr.open_dataset(data_folder + "fine_test.nc", engine="netcdf4")
+coarse = torch.from_numpy(cond_fields.to_array().to_numpy()).transpose(0, 1)
+fine = torch.from_numpy(fine_fields.to_array().to_numpy()).transpose(0, 1)[:,(3,4),...]
+invariant = torch.load(data_folder + "hr_topo.pt")
+G = mlflow.pytorch.load_model("../Generators/paper2/topography/temp_q_hr/")
+
+plot_realisations(G, coarse, fine, invariant, 1, coarse_num = 2, fine_num = 0, svals = stand_vals['temp'])
+#plt.colorbar()
+plt.show()
+#plt.savefig("paper2_figs/Temperature_cbar.png", bbox_inches = "tight", dpi = 400)
+```
+
+```{python}
+batchsize = 8
+inv_in = invariant.repeat(int(batchsize),1,1,1).to(device).float()
+
+all_gens = []
+for j in range(800):
+  if(j % 100 == 0):
+    print(j)
+  coarse_in = coarse[(j*batchsize):((j+1)*batchsize),...].to(device).float()
+  gen_out = G(coarse_in, inv_in).cpu().detach()
+  all_gens.append(gen_out)
+  del gen_out
+sr = un_stand(torch.cat(all_gens, 0),stand_vals['temp'])
+
+quantiles = [0.01, 0.5, 0.99]
+sr_quant = [np.quantile(sr, q, axis = 0) for q in quantiles]
+hr_quant = [np.quantile(un_stand(fine[0:6000,0,...],stand_vals['temp']), q, axis = 0) for q in quantiles]
+quant_diff = [qhr - qsr[0,...] for (qhr,qsr) in zip(hr_quant,sr_quant)]
+
+minv = np.min(hr_quant[0])
+maxv = np.max(hr_quant[2])
+
+thist_gen_jan = torch.histogram(sr[0:(24*31),0,...], range = (minv-5,maxv+5), density = True)
+thist_wrf_jan = torch.histogram(un_stand(fine[0:(24*31),0,...],stand_vals['temp']), range = (minv-5,maxv+5),density = True)
+
+thist_gen_jul = torch.histogram(sr[(24*31*6):(24*31*7),0,...], range = (minv-5,maxv+5),density = True)
+thist_wrf_jul = torch.histogram(un_stand(fine[(24*31*6):(24*31*7),0,...],stand_vals['temp']), range = (minv-5,maxv+5),density = True)
+```
+
+```{python}
+lsm = xr.open_dataset("../Data/" + "hr_topo_medres.nc", engine="netcdf4")
+lsm2 = torch.from_numpy(lsm.to_array().to_numpy())[0,...]
+
+Z = np.array(lsm2)
+plt.close()
+plt.contour(Z, levels = [100])
+plt.show()
+```
+
+```{python}
+fine_avg = torch.mean(fine[:,0,...], dim = (1,2))
+qs = np.quantile(fine_avg, [0.01, 0.99])
+
+i_1 = torch.argmin(torch.abs(fine_avg - qs[0]))
+i_9 = torch.argmin(torch.abs(fine_avg - qs[1]))
+col = "viridis"
+
+coarse_int = torch.nn.functional.interpolate(coarse,size=(128,128), mode='nearest-exact')
+
+plt.close()
+fig, axes = plt.subplot_mosaic("ABCDEF;GHIJKL;MMNOPQ",width_ratios = [1,1,1,1,1,0.1], gridspec_kw = {"wspace": 0.05, "hspace": 0.125})
+akeys = list(axes.keys())
+akeys.remove('M')
+for ax in akeys:
+    axes[ax].set_xticks([])
+    axes[ax].set_yticks([])
+    
+vrng = np.quantile(un_stand(fine[i_1,0,...],stand_vals['temp']),[0.01,0.99])
+axes['A'].imshow(torch.flipud(un_stand(fine[i_1,0,...],stand_vals['temp'])), cmap = col, interpolation='nearest', vmin = vrng[0], vmax = vrng[1], extent=None)
+axes['A'].set_title("WRF")
+axes['A'].set_ylabel("Cold")
+axes['B'].imshow(torch.flipud(un_stand(coarse_int[i_1,3,...],stand_vals['temp'])), cmap = col, interpolation='nearest', vmin = vrng[0], vmax = vrng[1], extent=None)
+axes['B'].contour(Z,levels = [100], colors = "black", linewidths = 0.5)
+axes['B'].set_title("ERA5")
+
+inv_in = invariant.repeat(int(batchsize),1,1,1).to(device).float()
+coarse_in = coarse[i_1,...]
+coarse_in = coarse_in.unsqueeze(0).repeat(int(batchsize),1,1,1).to(device).float()
+gen_out = un_stand(G(coarse_in, inv_in).cpu().detach(),stand_vals['temp'])
+for i,anm in enumerate(['C','D','E']):
+  imc = axes[anm].imshow(torch.flipud(gen_out[i,0,...]), cmap = col, interpolation='nearest', vmin = vrng[0], vmax = vrng[1], extent=None)
+  axes[anm].set_title("Gen " + str(i))
+fig.colorbar(imc, cax = axes['F'])
+
+
+##########################################
+vrng = np.quantile(un_stand(fine[i_9,0,...],stand_vals['temp']),[0.01,0.99])
+axes['G'].imshow(torch.flipud(un_stand(fine[i_9,0,...],stand_vals['temp'])), cmap = col, interpolation='nearest', vmin = vrng[0], vmax = vrng[1], extent=None)
+axes['G'].set_ylabel("Warm")
+axes['H'].imshow(torch.flipud(un_stand(coarse_int[i_9,3,...],stand_vals['temp'])), cmap = col, interpolation='nearest', vmin = vrng[0], vmax = vrng[1], extent=None)
+axes['H'].contour(Z,levels = [100],colors = "black", linewidths = 0.5)
+
+coarse_in = coarse[i_9,...]
+coarse_in = coarse_in.unsqueeze(0).repeat(int(batchsize),1,1,1).to(device).float()
+gen_out = un_stand(G(coarse_in, inv_in).cpu().detach(),stand_vals['temp'])
+for i,anm in enumerate(['I','J','K']):
+  imc = axes[anm].imshow(torch.flipud(gen_out[i,0,...]), cmap = col, interpolation='nearest', vmin = vrng[0], vmax = vrng[1], extent=None)
+c1 = fig.colorbar(imc, cax = axes['L'])
+c1.ax.set_ylabel('Temperature (K)', rotation=270, labelpad = 12)
+  
+axes['M'].plot(thist_wrf_jan[1][1:],thist_wrf_jan[0], color = "black", label = "WRF")
+axes['M'].plot(thist_gen_jan[1][1:],thist_gen_jan[0], color = "orange", label = "Gen")
+axes['M'].plot(thist_wrf_jul[1][1:],thist_wrf_jul[0], linestyle = 'dashed', color = "black")
+axes['M'].plot(thist_gen_jul[1][1:],thist_gen_jul[0], linestyle = 'dashed', color = "orange")
+axes['M'].set_xlabel("Temperature (K)")
+axes['M'].legend()
+
+value_range = (-3,3)
+#axes['M'].set_ylabel("Frequency")
+labs = ["Diff 0.01","Diff 0.5", "Diff 0.99"]
+for i,anm in enumerate(['N','O','P']):
+  imc = axes[anm].imshow(np.flipud(quant_diff[i]), cmap = "RdBu", interpolation='nearest',
+          vmin = value_range[0], vmax = value_range[1], extent=None)
+  axes[anm].set_xlabel(labs[i])
+fig.colorbar(imc, cax = axes['Q'])
+    
+plt.show()
+
+plt.savefig("paper2_figs/Temperature_Fig.png", bbox_inches = "tight", dpi = 400)
+```
+
+### Humidity
+
+```{python}
+G = mlflow.pytorch.load_model("../Generators/paper2/individual_vars/justhumid/")
+
+plot_realisations(G, coarse, fine, invariant, 1, coarse_num = 3, fine_num = 1,svals = stand_vals['q'])
+plt.savefig("paper2_figs/Humidity_realisations.png", bbox_inches = "tight", dpi = 400)
+
+plt.colorbar()
+plt.show()
+#plt.savefig("paper2_figs/Humidity_realisations_cbar.png", bbox_inches = "tight", dpi = 400)
+```
+
+```{python}
+batchsize = 6
+inv_in = invariant.repeat(int(batchsize),1,1,1).to(device).float()
+fine_loc = 1
+coarse_loc = 3
+snm = 'q'
+
+
+all_gens = []
+for j in range(800):
+  if(j % 100 == 0):
+    print(j)
+  coarse_in = coarse[(j*batchsize):((j+1)*batchsize),...].to(device).float()
+  gen_out = G(coarse_in, inv_in).cpu().detach()
+  all_gens.append(gen_out)
+  del gen_out
+sr = un_stand(torch.cat(all_gens, 0),stand_vals['q'])
+
+quantiles = [0.01, 0.5, 0.99]
+sr_quant = [np.quantile(sr, q, axis = 0) for q in quantiles]
+hr_quant = [np.quantile(un_stand(fine[0:6000,fine_loc,...], stand_vals[snm]), q, axis = 0) for q in quantiles]
+quant_diff = [qhr - qsr[0,...] for (qhr,qsr) in zip(hr_quant,sr_quant)]
+
+plot_bulk(quant_diff, ["0.01", "Median", "0.99"], (-0.001,0.001))
+
+minv = np.min(hr_quant[0])
+maxv = np.max(hr_quant[2])
+thist_gen_jan = torch.histogram(sr[0:(24*31),0,...], range = (minv,maxv), density = True)
+thist_wrf_jan = torch.histogram(un_stand(fine[0:(24*31),1,...],stand_vals['q']), range = (minv,maxv),density = True)
+
+thist_gen_jul = torch.histogram(sr[(24*31*6):(24*31*7),0,...], range = (minv,maxv),density = True)
+thist_wrf_jul = torch.histogram(un_stand(fine[(24*31*6):(24*31*7),1,...],stand_vals['q']), range = (minv, maxv),density = True)
+```
+
+```{python}
+
+fine_avg = torch.mean(fine[:,fine_loc,...], dim = (1,2))
+qs = np.quantile(fine_avg, [0.011, 0.99])
+
+i_1 = torch.argmin(torch.abs(fine_avg - qs[0]))
+i_9 = torch.argmin(torch.abs(fine_avg - qs[1]))
+col = "viridis"
+
+
+plt.close()
+fig, axes = plt.subplot_mosaic("ABCDEF;GHIJKL;MMNOPQ",width_ratios = [1,1,1,1,1,0.1], gridspec_kw = {"wspace": 0.05, "hspace": 0.1})
+
+akeys = list(axes.keys())
+akeys.remove('M')
+for ax in akeys:
+    axes[ax].set_xticks([])
+    axes[ax].set_yticks([])
+    
+vrng = np.quantile(un_stand(fine[i_1,fine_loc,...],stand_vals[snm]),[0.01,0.99])
+axes['A'].imshow(torch.flipud(un_stand(fine[i_1,fine_loc,...],stand_vals[snm])), cmap = col, interpolation='nearest', vmin = vrng[0], vmax = vrng[1], extent=None)
+axes['A'].set_title("WRF")
+axes['A'].set_ylabel("Dry")
+axes['B'].imshow(torch.flipud(un_stand(coarse[i_1,coarse_loc,...],stand_vals[snm])), cmap = col, interpolation='nearest', vmin = vrng[0], vmax = vrng[1], extent=None)
+axes['B'].set_title("ERA5")
+
+inv_in = invariant.repeat(int(batchsize),1,1,1).to(device).float()
+coarse_in = coarse[i_1,...]
+coarse_in = coarse_in.unsqueeze(0).repeat(int(batchsize),1,1,1).to(device).float()
+gen_out = un_stand(G(coarse_in, inv_in).cpu().detach(),stand_vals[snm])
+for i,anm in enumerate(['C','D','E']):
+  imc = axes[anm].imshow(torch.flipud(gen_out[i,0,...]), cmap = col, interpolation='nearest', vmin = vrng[0], vmax = vrng[1], extent=None)
+  axes[anm].set_title("Gen " + str(i))
+c1 = fig.colorbar(imc, cax = axes['F'])
+#c1.ax.set_ylabel('Temperature (K)', rotation=270)
+##########################################
+vrng = np.quantile(un_stand(fine[i_9,fine_loc,...],stand_vals[snm]),[0.01,0.99])
+axes['G'].imshow(torch.flipud(un_stand(fine[i_9,fine_loc,...],stand_vals[snm])), cmap = col, interpolation='nearest', vmin = vrng[0], vmax = vrng[1], extent=None)
+axes['G'].set_ylabel("Moist")
+axes['H'].imshow(torch.flipud(un_stand(coarse[i_9,coarse_loc,...],stand_vals[snm])), cmap = col, interpolation='nearest', vmin = vrng[0], vmax = vrng[1], extent=None)
+
+coarse_in = coarse[i_9,...]
+coarse_in = coarse_in.unsqueeze(0).repeat(int(batchsize),1,1,1).to(device).float()
+gen_out = un_stand(G(coarse_in, inv_in).cpu().detach(),stand_vals[snm])
+for i,anm in enumerate(['I','J','K']):
+  imc = axes[anm].imshow(torch.flipud(gen_out[i,0,...]), cmap = col, interpolation='nearest', vmin = vrng[0], vmax = vrng[1], extent=None)
+c1 = fig.colorbar(imc, cax = axes['L'])
+c1.ax.set_ylabel('Humidity (g/g)', rotation=270, labelpad = 12)
+  
+value_range = (-0.001,0.001)
+#axes['M'].set_ylabel("Frequency")
+labs = ["Diff 0.01","Diff 0.5", "Diff 0.99"]
+for i,anm in enumerate(['N','O','P']):
+  imc = axes[anm].imshow(np.flipud(quant_diff[i]), cmap = "RdBu", interpolation='nearest',
+          vmin = value_range[0], vmax = value_range[1], extent=None)
+  axes[anm].set_xlabel(labs[i])
+fig.colorbar(imc, cax = axes['Q'])
+
+axes['M'].plot(thist_wrf_jan[1][1:],thist_wrf_jan[0], color = "black", label = "WRF")
+axes['M'].plot(thist_gen_jan[1][1:],thist_gen_jan[0], color = "orange", label = "Gen")
+axes['M'].plot(thist_wrf_jul[1][1:],thist_wrf_jul[0],linestyle = 'dashed', color = "black")
+axes['M'].plot(thist_gen_jul[1][1:],thist_gen_jul[0],linestyle = 'dashed', color = "orange")
+axes['M'].set_xlabel("Humidity (g/g)")
+axes['M'].legend()
+
+    
+plt.show()
+
+plt.savefig("paper2_figs/Humidity_Fig.png", bbox_inches = "tight", dpi = 400)
+```
+
+### Precip
+
+```{python}
+data_folder = "../Data/ds_precip_v3/" ##should be v3 and then all_vars
+cond_fields = xr.open_dataset(data_folder + "coarse_validation_all_vars.nc", engine="netcdf4")
+fine_fields = xr.open_dataset(data_folder + "fine_validation.nc", engine="netcdf4")
+coarse2 = torch.from_numpy(cond_fields.to_array().to_numpy()).transpose(0, 1)
+fine2 = torch.from_numpy(fine_fields.to_array().to_numpy()).transpose(0, 1)
+invariant = torch.load(data_folder + "hr_topo.pt")
+
+which_zero = torch.sum(fine2, dim = (1,2,3))
+fine = fine2[which_zero > 4000 ,...]
+coarse = coarse2[which_zero > 4000,...]
+
+G = mlflow.pytorch.load_model("../Generators/paper2/individual_vars/Precip/final/s_crps/")
+#G = mlflow.pytorch.load_model("../Generators/paper2/individual_vars/Precip/S_crps/")
+
+plot_realisations(G, coarse, fine, invariant, 1, coarse_num = 0, fine_num = 0, svals = stand_vals['precip'])
+#plt.savefig("paper2_figs/Precip_realisations.png", bbox_inches = "tight", dpi = 400)
+plt.colorbar()
+plt.show()
+#plt.savefig("paper2_figs/Precip_realisations_cbar.png", bbox_inches = "tight", dpi = 400)
+```
+
+```{python}
+batchsize = 8
+inv_in = invariant.repeat(int(batchsize),1,1,1).to(device).float()
+fine_loc = 0
+coarse_loc = 0
+snm = 'precip'
+
+
+all_gens = []
+for j in range(800):
+  if(j % 100 == 0):
+    print(j)
+  coarse_in = coarse[(j*batchsize):((j+1)*batchsize),...].to(device).float()
+  gen_out = G(coarse_in, inv_in).cpu().detach()
+  all_gens.append(gen_out)
+  del gen_out
+sr = un_stand(torch.cat(all_gens, 0), stand_vals['precip'])
+
+quantiles = [0.01, 0.5, 0.99]
+sr_quant = [np.quantile(sr, q, axis = 0) for q in quantiles]
+hr_quant = [np.quantile(un_stand(fine[0:6000,0,...],stand_vals['precip']), q, axis = 0) for q in quantiles]
+quant_diff = [qhr - qsr[0,...] for (qhr,qsr) in zip(hr_quant,sr_quant)]
+
+plot_bulk(quant_diff, ["0.01", "Median", "0.99"], (-1,1))
+
+minv = np.min(hr_quant[0])
+maxv = np.max(hr_quant[2])
+thist_gen_jan = torch.histogram(sr[0:(24*31*7),0,...], range = (minv,maxv), density = True)
+thist_wrf_jan = torch.histogram(un_stand(fine[0:(24*31*7),0,...],stand_vals['precip']), range = (minv,maxv),density = True)
+
+# thist_gen_jul = torch.histogram(sr[(24*31*6):(24*31*7),0,...], range = (minv,maxv),density = True)
+# thist_wrf_jul = torch.histogram(un_stand(fine[(24*31*6):(24*31*7),0,...],stand_vals['precip']), range = (minv, maxv),density = True)
+#plt.savefig("paper2_figs/Precip_Stats.png", bbox_inches = "tight", dpi = 400)
+```
+
+```{python}
+fine_avg = torch.mean(fine[:,fine_loc,...], dim = (1,2))
+qs = np.quantile(fine_avg, [0.01, 0.99])
+
+i_1 = torch.argmin(torch.abs(fine_avg - qs[0]))
+i_9 = torch.argmin(torch.abs(fine_avg - qs[1]))
+col = "viridis"
+
+
+plt.close()
+fig, axes = plt.subplot_mosaic("ABCDEF;GHIJKL;MMNOPQ",width_ratios = [1,1,1,1,1,0.1], gridspec_kw = {"wspace": 0.05, "hspace": 0.1})
+akeys = list(axes.keys())
+akeys.remove('M')
+for ax in akeys:
+    axes[ax].set_xticks([])
+    axes[ax].set_yticks([])
+    
+vrng = np.quantile(un_stand(fine[i_1,fine_loc,...],stand_vals[snm]),[0.01,0.99])
+axes['A'].imshow(torch.flipud(un_stand(fine[i_1,fine_loc,...],stand_vals[snm])), cmap = col, interpolation='nearest', vmin = vrng[0], vmax = vrng[1], extent=None)
+axes['A'].set_title("WRF")
+axes['A'].set_ylabel("Light Rain")
+axes['B'].imshow(torch.flipud(un_stand(coarse[i_1,coarse_loc,...],stand_vals[snm])), cmap = col, interpolation='nearest', vmin = vrng[0], vmax = vrng[1], extent=None)
+axes['B'].set_title("ERA5")
+
+inv_in = invariant.repeat(int(batchsize),1,1,1).to(device).float()
+coarse_in = coarse[i_1,...]
+coarse_in = coarse_in.unsqueeze(0).repeat(int(batchsize),1,1,1).to(device).float()
+gen_out = un_stand(G(coarse_in, inv_in).cpu().detach(),stand_vals[snm])
+for i,anm in enumerate(['C','D','E']):
+  imc = axes[anm].imshow(torch.flipud(gen_out[i,0,...]), cmap = col, interpolation='nearest', vmin = vrng[0], vmax = vrng[1], extent=None)
+  axes[anm].set_title("Gen " + str(i))
+c1 = fig.colorbar(imc, cax = axes['F'])
+#c1.ax.set_ylabel('Temperature (K)', rotation=270)
+##########################################
+vrng = np.quantile(un_stand(fine[i_9,fine_loc,...],stand_vals[snm]),[0.01,0.99])
+axes['G'].imshow(torch.flipud(un_stand(fine[i_9,fine_loc,...],stand_vals[snm])), cmap = col, interpolation='nearest', vmin = vrng[0], vmax = vrng[1], extent=None)
+axes['G'].set_ylabel("Heavy Rain")
+axes['H'].imshow(torch.flipud(un_stand(coarse[i_9,coarse_loc,...],stand_vals[snm])), cmap = col, interpolation='nearest', vmin = vrng[0], vmax = vrng[1], extent=None)
+
+coarse_in = coarse[i_9,...]
+coarse_in = coarse_in.unsqueeze(0).repeat(int(batchsize),1,1,1).to(device).float()
+gen_out = un_stand(G(coarse_in, inv_in).cpu().detach(),stand_vals[snm])
+for i,anm in enumerate(['I','J','K']):
+  imc = axes[anm].imshow(torch.flipud(gen_out[i,0,...]), cmap = col, interpolation='nearest', vmin = vrng[0], vmax = vrng[1], extent=None)
+c1 = fig.colorbar(imc, cax = axes['L'])
+c1.ax.set_ylabel('Precip (mm/h)', rotation=270, labelpad = 12)
+  
+value_range = (-1,1)
+#axes['M'].set_ylabel("Bulk Statistics")
+labs = ["Diff 0.01","Diff 0.5", "Diff 0.99"]
+for i,anm in enumerate(['N','O','P']):
+  imc = axes[anm].imshow(np.flipud(quant_diff[i]), cmap = "RdBu", interpolation='nearest',
+          vmin = value_range[0], vmax = value_range[1], extent=None)
+  axes[anm].set_xlabel(labs[i])
+fig.colorbar(imc, cax = axes['Q'])
+
+axes['M'].plot(thist_wrf_jan[1][1:],thist_wrf_jan[0], color = "black", label = "WRF")
+axes['M'].plot(thist_gen_jan[1][1:],thist_gen_jan[0], color = "orange", label = "Gen")
+# axes['M'].plot(thist_wrf_jul[1][1:],thist_wrf_jul[0], color = "black")
+# axes['M'].plot(thist_gen_jul[1][1:],thist_gen_jul[0], color = "orange")
+axes['M'].set_xlabel("Precip (mm/h)")
+axes['M'].set_yscale("log")
+#axes['M'].set_xscale("log")
+axes['M'].legend()
+    
+plt.show()
+
+plt.savefig("paper2_figs/Precip_Fig.png", bbox_inches = "tight", dpi = 400)
+```
+
+#### Precip Distributions
+
+```{python}
+G = mlflow.pytorch.load_model("../Generators/paper2/individual_vars/Precip/final/f_nonoise/")
+plot_realisations(G, coarse, fine, invariant, 1, coarse_num = 0, fine_num = 0,svals = stand_vals['precip'])
+
+
+all_gens2 = []
+for j in range(800):
+  if(j % 100 == 0):
+    print(j)
+  coarse_in = coarse[(j*batchsize):((j+1)*batchsize),...].to(device).float()
+  gen_out = G(coarse_in, inv_in).cpu().detach()
+  all_gens2.append(gen_out)
+  del gen_out
+sr2 = un_stand(torch.cat(all_gens2, 0),stand_vals['precip'])
+
+quantiles = [0.01, 0.5, 0.99]
+sr2_quant = [np.quantile(sr2, q, axis = 0) for q in quantiles]
+quant2_diff = [qhr - qsr[0,...] for (qhr,qsr) in zip(hr_quant,sr2_quant)]
+
+plot_bulk(quant2_diff, ["0.01", "Median", "0.99"], (-1,1))
+#plt.savefig("paper2_figs/Precip_Stats_Fnonoise.png", bbox_inches = "tight", dpi = 400)
+```
+
+```{python}
+thist_gen = torch.histogram(sr, range = (0,25))
+hist_gen_crps = np.array(thist_gen[0])
+hist_gen_brks_crps = np.array(thist_gen[1])
+
+thist_gen = torch.histogram(sr2, range = (0,25))
+hist_gen_fmae = np.array(thist_gen[0])
+hist_gen_brks_fmae = np.array(thist_gen[1])
+
+thist_wrf = torch.histogram(un_stand(fine[0:6400,...],stand_vals['precip']), range = (0,25))
+hist_wrf = np.array(thist_wrf[0])
+hist_wrf_brks = np.array(thist_wrf[1])
+quant99 = np.quantile(un_stand(fine[0:6400,...].flatten(),stand_vals['precip']), 0.999)
+
+```
+
+```{r}
+library(data.table)
+library(ggplot2)
+library(reticulate)
+library(ggsci)
+
+dat <- data.table(Stochastic = py$hist_gen_crps, Deterministic = py$hist_gen_fmae, WRF = py$hist_wrf, Precip = py$hist_wrf_brks[-1])
+# dat[,prop_crps := CRPS/Real]
+# dat[,prop_mae := MAE/Real]
+
+dat2 <- melt(dat, id.vars = "Precip", variable.name = "Model")
+
+ggplot(dat2, aes(x = Precip, y = value, color = Model)) +
+  geom_line(linewidth = 1) +
+  scale_y_log10() +
+  geom_vline(xintercept = py$quant99) +
+  theme_bw() +
+  theme(legend.position=c(0.8,0.8),
+        legend.box.background = element_rect(colour = "black")) +
+  scale_color_jama() +
+  ylab("Frequency (log)") +
+  xlab("Precipitation (mm/h)")
+#ggsave("paper2_figs/Precip_Distr.png", height = 5, width = 7, dpi = 400)
+
+```
+
+### Rank Hists
+
+```{python}
+
+mods = ["../Generators/paper2/individual_vars/justtemp/","../Generators/paper2/individual_vars/justhumid/","../Generators/paper2/individual_vars/Precip/final/all_vars/"]
+random_samps = torch.randint(0, 1000, (50, ))
+
+def load_data(data_folder, c_name, f_name, pred_num = None, precip = False):
+  cond_fields = xr.open_dataset(data_folder + c_name, engine="netcdf4")
+  fine_fields = xr.open_dataset(data_folder + f_name, engine="netcdf4")
+  coarse = torch.from_numpy(cond_fields.to_array().to_numpy()).transpose(0, 1)
+  fine = torch.from_numpy(fine_fields.to_array().to_numpy()).transpose(0, 1)
+  if(pred_num is not None):
+    fine = fine[:,pred_num,...].unsqueeze(1)
+  if(precip):
+    which_zero = torch.sum(fine, dim = (1,2,3))
+    fine = fine[which_zero > 4000 ,...]
+    coarse = coarse[which_zero > 4000,...]
+  invariant = torch.load(data_folder + "hr_topo.pt")
+  return(coarse, fine, invariant)
+
+dat = [load_data("../Data/ds_humid_v2/","coarse_test.nc","fine_test_th.nc"),load_data("../Data/ds_humid_v2/","coarse_test.nc","fine_test_th.nc",pred_num = 1),load_data("../Data/ds_precip_v3/","coarse_test_all_vars.nc", "fine_test.nc", precip = True)]
+
+rh_res = [rankhist_preds(mlflow.pytorch.load_model(x), coarse = d[0], fine = d[1], invariant = d[2], random = random_samps) for (x,d) in zip(mods,dat)]
+
+```
+
+```{r}
+temp <- py$rh_res
+rh_dat <- data.table(var1 = hist(temp[[1]], plot = F, breaks = 100)$counts,
+                     var2 = hist(temp[[2]], plot = F, breaks = 100)$counts,
+                     var3 = hist(temp[[3]], plot = F, breaks = 100)$counts)
+
+#fwrite(rh_dat,"Paper2_rankhist.csv")
+rh_dat[,`:=`(cdf_v1 = cumsum(var1),
+             cdf_v2 = cumsum(var2),
+             cdf_v3 = cumsum(var3))]
+rh_dat[, cdf_unif := cumsum(rep(sum(var1)/length(var1),length(var1)))]
+pdat <- rh_dat[,.(cdf_v1,cdf_v2,cdf_v3,cdf_unif)]
+pdat[,rank := seq_along(cdf_unif)]
+temp <- as.data.table(matrix(rep(0,ncol(pdat)),nrow = 1))
+setnames(temp,names(pdat))
+pdat <- rbind(temp,pdat)
+pdat <- melt(pdat, id.vars = "rank", value.name = "CDF", variable.name = "Model")
+pdat[,CDF := CDF/max(CDF)]
+pdat[,rank := rank/max(rank)]
+
+ggplot(pdat[!Model %in%  c("cdf_unif"),], aes(x = rank, y = CDF, col = Model)) +
+  geom_line(linewidth = 1) +
+  geom_line(data = pdat[Model == "cdf_unif",], aes(x = rank, y = CDF, col = "Uniform"), linetype = "dashed", col = "black", linewidth = 0.5)+
+  scale_color_manual(values = c("red","forestgreen","darkblue"), labels = c("Temperature","Humidity","Precip")) +
+  theme_bw() +
+  xlab("Standardised Rank")
+
+ggsave("paper2_figs/RankHist.png", height = 5, width = 6, dpi = 400)
+
+```
+
+### RASP
+
+```{python}
+def load_data(data_folder, c_name, f_name, pred_num = None, precip = False):
+  cond_fields = xr.open_dataset(data_folder + c_name, engine="netcdf4")
+  fine_fields = xr.open_dataset(data_folder + f_name, engine="netcdf4")
+  coarse = torch.from_numpy(cond_fields.to_array().to_numpy()).transpose(0, 1)
+  fine = torch.from_numpy(fine_fields.to_array().to_numpy()).transpose(0, 1)
+  if(pred_num is not None):
+    fine = fine[:,pred_num,...].unsqueeze(1)
+  if(precip):
+    which_zero = torch.sum(fine, dim = (1,2,3))
+    fine = fine[which_zero > 4000 ,...]
+    coarse = coarse[which_zero > 4000,...]
+  invariant = torch.load(data_folder + "hr_topo.pt")
+  ds = NetCDFSR(coarse, fine, torch.squeeze(invariant).unsqueeze(0), device=device)
+  return(ds)
+
+
+def make_rapsd(models, modNm, datasets, pred_num, title):
+  res = dict()
+  for i in range(len(models)):
+      print("Analysing model",modNm[i])
+      G = mlflow.pytorch.load_model(models[i])
+      dataloader = torch.utils.data.DataLoader(
+          dataset=datasets[i], batch_size=6, shuffle=True
+      )
+      
+      RALSD = calc_ralsd(G, dataloader,pred_num[i])
+      # ral = np.mean(RALSD,axis = 0)
+      # sdral = np.std(RALSD,axis = 0)
+      res[modNm[i]] = RALSD
+  
+  # plt.close()
+  # cols = ['orange','blue','red','green']
+  # for i,nm in enumerate(modNm):
+  #     plt.plot(res[nm][:,0], label = nm, color = cols[i])
+  #     plt.fill_between(range(64),res[nm][:,0]+res[nm][:,1],res[nm][:,0]-res[nm][:,1], alpha = 0.1, color = cols[i])
+  # plt.hlines(y = 1, xmin=0, xmax=64, color = "black")
+  # plt.xlabel("Wavenumber")
+  # plt.ylabel("Standardised Amplitude")
+  # plt.title(title)
+  # plt.legend()
+  # plt.show()
+  return(res)
+
+```
+
+```{python}
+ds_temp = load_data("../Data/ds_humid_v2/","coarse_test.nc","fine_test_th.nc")
+ds_humid = load_data("../Data/ds_humid_v2/","coarse_test.nc","fine_test_th.nc", pred_num = 1)
+ds_precip = load_data("../Data/ds_precip_v3/","coarse_test_all_vars.nc", "fine_test.nc", precip = True)
+
+ds_all = [ds_temp, ds_humid, ds_precip]
+models = ["../Generators/paper2/individual_vars/justtemp/","../Generators/paper2/individual_vars/justhumid/","../Generators/paper2/individual_vars/Precip/final/s_crps/"]
+modNm = ["T","Q","Pr"]
+
+res = make_rapsd(models, modNm, ds_all, [0,0,0], "RASP")
+```
+
+```{r}
+dat <- py$res
+t_ls <- list()
+for(nm in names(dat)){
+  temp <- matrix(unlist(dat[[nm]]), ncol = 64, byrow = T)
+  t_med <- colMedians(temp)
+  t_iqr <- colQuantiles(temp, probs = c(0.25,0.75))
+  t1 <- as.data.table(cbind(t_med, t_iqr))
+  t_ls[[nm]] <- t1
+}
+
+dat2 <- rbindlist(t_ls, idcol = "Model")
+
+dat2[,FreqBand := rep(1:64, length(dat))]
+#dat2[,Model := factor(Model, levels = c("NoFS","CRPS50","CRPS20"))]
+
+ggplot(dat2, aes(x = FreqBand, y = t_med, col = Model)) +
+  geom_line(linewidth = 1) +
+  geom_ribbon(aes(ymin = `25%`, ymax = `75%`, fill = Model), alpha = 0.15, linetype = 2)+
+  scale_colour_manual(values = c("darkblue","darkgreen","darkred"),aesthetics = c("colour","fill")) +
+  geom_hline(yintercept = 1) +
+  geom_vline(xintercept = 16, col = "grey30", linetype = "dashed", size = 1)+
+  theme_bw()+
+  #facet_wrap(~ Model) +
+  ylab("Standardised Amplitude") +
+  xlab("Wavenumber") 
+
+
+ggsave("paper2_figs/RASP.png", height = 5, width = 6, dpi = 400)
+
+```
+
+## Multivariate Tests
+
+### Mutual information - Multivariate
+
+```{python}
+from DoWnGAN.helpers.analysis import mutual_information_2d
+def load_data(data_folder, c_name, f_name, pred_num = None, precip = False):
+  cond_fields = xr.open_dataset(data_folder + c_name, engine="netcdf4")
+  fine_fields = xr.open_dataset(data_folder + f_name, engine="netcdf4")
+  coarse = torch.from_numpy(cond_fields.to_array().to_numpy()).transpose(0, 1)
+  fine = torch.from_numpy(fine_fields.to_array().to_numpy()).transpose(0, 1)
+  if(pred_num is not None):
+    fine = fine[:,pred_num,...].unsqueeze(1)
+  if(precip):
+    which_zero = torch.sum(fine, dim = (1,2,3))
+    fine = fine[which_zero > 4000 ,...]
+    coarse = coarse[which_zero > 4000,...]
+  invariant = torch.load(data_folder + "hr_topo.pt")
+  return(coarse, fine, invariant)
+
+coarse, fine, invariant = load_data("../Data/ds_all_vars/", "coarse_test.nc", "fine_test.nc", precip = True)
+G_mv = mlflow.pytorch.load_model("../Generators/paper2/multivariate/multivariate_v2/")
+
+inv_in = invariant.repeat(int(6),1,1,1).to(device).float()
+
+gen_mv = []
+for x in range(100):
+  coarse_in = coarse[x*6:(x*6+6),...].to(device).float()
+  gen_t = G_mv(coarse_in,inv_in).detach().cpu()
+  gen_mv.append(gen_t)
+
+gen_mv = torch.cat(gen_mv)
+
+```
+
+#### Separate mods
+
+```{python}
+gen_T = mlflow.pytorch.load_model("../Generators/paper2/individual_vars/justtemp/")
+gen_Q = mlflow.pytorch.load_model("../Generators/paper2/individual_vars/justhumid/")
+gen_P = mlflow.pytorch.load_model("../Generators/paper2/individual_vars/Precip/final/s_crps/")
+coarse_th, fine_th, invariant = load_data("../Data/ds_humid_v2/", "coarse_test.nc", "fine_test_th.nc", precip = True)
+coarse_pr, fine_pr, invariant = load_data("../Data/ds_precip_v3/", "coarse_test_all_vars.nc", "fine_test.nc", precip = True)
+
+gen_t = []
+for x in range(100):
+  coarse_in = coarse_th[x*6:(x*6+6),...].to(device).float()
+  gens = gen_T(coarse_in,inv_in).detach().cpu()
+  gen_t.append(gens)
+
+gen_t = torch.cat(gen_t)
+
+gen_h = []
+for x in range(100):
+  coarse_in = coarse_th[x*6:(x*6+6),...].to(device).float()
+  gens = gen_Q(coarse_in,inv_in).detach().cpu()
+  gen_h.append(gens)
+
+gen_h = torch.cat(gen_h)
+
+gen_p = []
+for x in range(100):
+  coarse_in = coarse_pr[x*6:(x*6+6),...].to(device).float()
+  gens = gen_P(coarse_in,inv_in).detach().cpu()
+  gen_p.append(gens)
+
+gen_p = torch.cat(gen_p)
+
+gen_univ = torch.cat([gen_p, gen_t, gen_h], dim = 1)
+```
+
+```{r}
+library(matie)
+d <- shpd(n=1000,m=2,Rsq=0.9) 
+ma(d)$A
+
+dat <- data.frame(U = py$t1, V = py$t1)
+test = ma(dat)
+```
+
+```{python}
+def mut_inf(v1, v2):
+  res = []
+  for i in range(v1.shape[0]):
+    W = v1[i,...].flatten()
+    V = v2[i,...].flatten()
+    mi = mutual_information_2d(W,V,normalized=False)
+    res.append(mi)
+  return(np.array(res))
+
+# test = mut_inf(gen_mv[:,0,...],gen_mv[:,0,...])
+# t1 = gen_mv[42,3,...].flatten().numpy()
+# t2 = gen_mv[42,4,...].flatten().numpy()
+
+mv_res = np.empty([3,3])
+for i in range(3):
+  for j in range(3):
+    mv_res[i,j] = np.mean(mut_inf(gen_mv[:,i+2,...],gen_mv[:,j+2,...]))
+    
+uv_res = np.empty([3,3])
+for i in range(3):
+  for j in range(3):
+    uv_res[i,j] = np.mean(mut_inf(gen_univ[:,i,...],gen_univ[:,j,...]))
+    
+real_res = np.empty([3,3])
+for i in range(3):
+  for j in range(3):
+    real_res[i,j] = np.mean(mut_inf(fine[:600,i+2,...],fine[:600,j+2,...]))
+```
+
+```{r}
+library(reticulate)
+library(data.table)
+vars <- c("Precip","Temp","Humid")
+mv <- data.table(py$mv_res)
+colnames(mv) <- vars
+mv$Var1 <- vars
+mv2 <- melt(mv, id.vars = "Var1", value.name = "Multivar")
+
+uv <- data.table(py$uv_res)
+colnames(uv) <- vars
+uv$Var1 <- vars
+uv2 <- melt(uv, id.vars = "Var1", value.name = "Univar")
+
+wrf <- data.table(py$real_res)
+colnames(wrf) <- vars
+wrf$Var1 <- vars
+wrf2 <- melt(wrf, id.vars = "Var1", value.name = "WRF")
+
+all_mi <- data.table(Var1 = mv2$Var1, Var2 = mv2$variable, Multivar = mv2$Multivar, Univar = uv2$Univar, WRF = wrf2$WRF)
+
+all_mi <- all_mi[Var1 != Var2,]
+all_mi <- all_mi[c(1,2,4)]
+knitr::kable(all_mi)
+
+library(xtable)
+xtable(all_mi, digits = 3, type = "latex")
+```
+
+### RASP of MV vs UV
+
+```{python}
+
+def load_data(data_folder, c_name, f_name, pred_num = None, precip = False):
+  cond_fields = xr.open_dataset(data_folder + c_name, engine="netcdf4")
+  fine_fields = xr.open_dataset(data_folder + f_name, engine="netcdf4")
+  coarse = torch.from_numpy(cond_fields.to_array().to_numpy()).transpose(0, 1)
+  fine = torch.from_numpy(fine_fields.to_array().to_numpy()).transpose(0, 1)
+  if(pred_num is not None):
+    fine = fine[:,pred_num,...].unsqueeze(1)
+  if(precip):
+    which_zero = torch.sum(fine, dim = (1,2,3))
+    fine = fine[which_zero > 4000 ,...]
+    coarse = coarse[which_zero > 4000,...]
+  invariant = torch.load(data_folder + "hr_topo.pt")
+  ds = NetCDFSR(coarse, fine, torch.squeeze(invariant).unsqueeze(0), device=device)
+  return(ds)
+
+ds_mv = load_data("../Data/ds_all_vars/","coarse_test.nc","fine_test.nc")
+ds_mv2 = load_data("../Data/ds_all_vars/","coarse_test.nc","fine_test.nc", pred_num = 4)
+ds_uv = load_data("../Data/ds_humid_v2/","coarse_test.nc","fine_test_th.nc", pred_num = 1)
+
+"../Generators/paper2/multivariate/"
+ds_all = [ds_mv, ds_mv2, ds_uv]
+models = ["../Generators/paper2/multivariate/multivariate_v2/","../Generators/paper2/multivariate/no_precip_215/", "../Generators/paper2/individual_vars/justhumid/"]
+modNm = ["FullMV","NoPrecip","UV"]
+
+res_q = make_rapsd(models, modNm, ds_all, [4,3,0])
+
+######temperature
+ds_mv2 = load_data("../Data/ds_all_vars/","coarse_test.nc","fine_test.nc", pred_num = 2, precip = True)
+ds_uv = load_data("../Data/ds_precip_v3/","coarse_test_all_vars.nc","fine_test.nc", precip = True)
+
+ds_all = [ds_mv2, ds_uv]
+models = ["../Generators/paper2/multivariate/multivariate_v2/", "../Generators/paper2/individual_vars/Precip/final/s_crps/"]
+modNm = ["FullMV","UV"]
+
+res_p = make_rapsd(models, modNm, ds_all, [2,0])
+
+##precip
+ds_mv2 = load_data("../Data/ds_all_vars/","coarse_test.nc","fine_test.nc", pred_num = 3)
+ds_uv = load_data("../Data/ds_humid_v2/","coarse_test.nc","fine_test_th.nc", pred_num = 0)
+
+ds_all = [ds_mv, ds_mv2, ds_uv]
+models = ["../Generators/paper2/multivariate/multivariate_v2/","../Generators/paper2/multivariate/no_precip_215/", "../Generators/paper2/individual_vars/justtemp/"]
+modNm = ["FullMV","NoPrecip","UV"]
+
+res_t = make_rapsd(models, modNm, ds_all, [3,2,0])
+
+####meridional wind
+ds_mv2 = load_data("../Data/ds_all_vars/","coarse_test.nc","fine_test.nc", pred_num = 1)
+ds_uv = load_data("../Data/ds_wind_full/","coarse_test.nc","fine_test.nc")
+
+"../Generators/final_gens/wind_S_crps_lower_noise/"
+ds_all = [ds_mv, ds_mv2, ds_uv]
+models = ["../Generators/paper2/multivariate/multivariate_v2/","../Generators/paper2/multivariate/no_precip_215/", "../Generators/final_gens/wind_S_crps_lower_noise/"]
+modNm = ["FullMV","NoPrecip","UV"]
+
+res_V = make_rapsd(models, modNm, ds_all, [1,1,1])
+
+```
+
+```{r}
+library(matrixStats)
+dat <- py$res_q
+t_ls <- list()
+for(nm in names(dat)){
+  temp <- matrix(unlist(dat[[nm]]), ncol = 64, byrow = T)
+  t_med <- colMedians(temp)
+  t_iqr <- colQuantiles(temp, probs = c(0.25,0.75))
+  t1 <- as.data.table(cbind(t_med, t_iqr))
+  t_ls[[nm]] <- t1
+}
+
+dat2 <- rbindlist(t_ls, idcol = "Model")
+dat2[,FreqBand := rep(1:64, length(dat))]
+dat2[,Var := "Q"]
+dat_q <- dat2
+
+dat <- py$res_p
+t_ls <- list()
+for(nm in names(dat)){
+  temp <- matrix(unlist(dat[[nm]]), ncol = 64, byrow = T)
+  t_med <- colMedians(temp)
+  t_iqr <- colQuantiles(temp, probs = c(0.25,0.75))
+  t1 <- as.data.table(cbind(t_med, t_iqr))
+  t_ls[[nm]] <- t1
+}
+dat2 <- rbindlist(t_ls, idcol = "Model")
+dat2[,FreqBand := rep(1:64, length(dat))]
+dat2[,Var := "P"]
+dat_p <- dat2
+
+
+dat <- py$res_t
+t_ls <- list()
+for(nm in names(dat)){
+  temp <- matrix(unlist(dat[[nm]]), ncol = 64, byrow = T)
+  t_med <- colMedians(temp)
+  t_iqr <- colQuantiles(temp, probs = c(0.25,0.75))
+  t1 <- as.data.table(cbind(t_med, t_iqr))
+  t_ls[[nm]] <- t1
+}
+dat2 <- rbindlist(t_ls, idcol = "Model")
+dat2[,FreqBand := rep(1:64, length(dat))]
+dat2[,Var := "T"]
+dat_t <- dat2
+
+dat <- py$res_V
+t_ls <- list()
+for(nm in names(dat)){
+  temp <- matrix(unlist(dat[[nm]]), ncol = 64, byrow = T)
+  t_med <- colMedians(temp)
+  t_iqr <- colQuantiles(temp, probs = c(0.25,0.75))
+  t1 <- as.data.table(cbind(t_med, t_iqr))
+  t_ls[[nm]] <- t1
+}
+dat2 <- rbindlist(t_ls, idcol = "Model")
+dat2[,FreqBand := rep(1:64, length(dat))]
+dat2[,Var := "V"]
+dat_v <- dat2
+
+dat2 <- rbind(dat_q,dat_p,dat_t,dat_v)
+
+#dat2[,Model := factor(Model, levels = c("NoFS","CRPS50","CRPS20"))]
+
+ggplot(dat2, aes(x = FreqBand, y = t_med, col = Model)) +
+  geom_line(linewidth = 1) +
+  #geom_ribbon(aes(ymin = `25%`, ymax = `75%`, fill = Model), alpha = 0.2, linetype = 0)+
+  geom_hline(yintercept = 1) +
+  #geom_vline(xintercept = 0.25, col = "grey30", linetype = "dashed", size = 1)+
+  theme_bw()+
+  facet_wrap(~ Var) +
+  ylab("Standardised Amplitude") +
+  xlab("Wavenumber") 
+
+ggsave("paper2_figs/MV_UV_RASP.png", height = 5, width = 8, dpi = 400)
+
+```
+
+#### Plot MV bulk stats
+
+```{python}
+
+def generate_batch(G, coarse, invariant, niter = 500):
+  batchsize = 6
+  inv_in = invariant.repeat(int(batchsize),1,1,1).to(device).float()
+  all_gens = []
+  for j in range(500):
+    if(j % 100 == 0):
+      print(j)
+    coarse_in = coarse[(j*batchsize):((j+1)*batchsize),...].to(device).float()
+    gen_out = G(coarse_in, inv_in).cpu().detach()
+    all_gens.append(gen_out)
+    del gen_out
+  sr = torch.cat(all_gens, 0)
+  return(sr)
+
+coarse, fine, invariant = load_data("../Data/ds_all_vars/","coarse_test.nc","fine_test.nc", precip = True)
+G = mlflow.pytorch.load_model("../Generators/paper2/multivariate/multivariate_v2/")
+sr_mv = generate_batch(G, coarse, invariant)
+
+G = mlflow.pytorch.load_model("../Generators/paper2/multivariate/no_precip_215/")
+sr_mvnp = generate_batch(G, coarse, invariant)
+
+coarse, fine, invariant = load_data("../Data/ds_humid_v2/","coarse_test.nc","fine_test.nc", precip = True)
+G = mlflow.pytorch.load_model("../Generators/paper2/individual_vars/justhumid/")
+sr_uv = generate_batch(G, coarse, invariant)
+
+
+quantiles = [0.01, 0.5, 0.99]
+sr_mv_quant = [np.quantile(sr_mv, q, axis = 0) for q in quantiles]
+sr_mvnp_quant = [np.quantile(sr_mvnp, q, axis = 0) for q in quantiles]
+sr_uv_quant = [np.quantile(sr_uv, q, axis = 0) for q in quantiles]
+hr_quant = [np.quantile(fine[0:3000,...], q, axis = 0) for q in quantiles]
+
+plt.close()
+fig = plt.figure()
+grid = ImageGrid(fig, 111,
+                nrows_ncols = (1,3),
+                axes_pad = 0.05,
+                cbar_location = "right",
+                cbar_mode="single",
+                cbar_size="5%",
+                cbar_pad=0.05,
+                share_all = True)
+
+grid[0].get_yaxis().set_ticks([])
+grid[0].get_xaxis().set_ticks([])
+col = "viridis"
+value_range = (1.5,4)
+imc = grid[0].imshow(sr_mv_quant[2][4,...], cmap = col, interpolation='nearest',
+        vmin = value_range[0], vmax = value_range[1], extent=None)
+grid[0].set_xlabel("Multivariate")
+imc = grid[1].imshow(sr_mvnp_quant[2][3,...], cmap = col, interpolation='nearest',
+        vmin = value_range[0], vmax = value_range[1], extent=None)
+grid[1].set_xlabel("No Precip")
+imc = grid[2].imshow(sr_uv_quant[2][0,...], cmap = col, interpolation='nearest',
+        vmin = value_range[0], vmax = value_range[1], extent=None)
+grid[2].set_xlabel("Univariate")
+
+plt.colorbar(imc, cax=grid.cbar_axes[0])
+plt.show()
+
+plt.savefig("paper2_figs/mv_humid.png", bbox_inches = "tight", dpi = 400)
+
+```
+
+# Case Study 1: Topography
