@@ -65,7 +65,9 @@ def plot_img(img, value_range=(-2,2), cmap = "viridis", extent=None):
 
 def calc_ralsd(G,dataloader,pred_num,is_inv = True):
     torch.cuda.empty_cache()
-    RALSD = []
+    res_gen = []
+    res_truth = []
+    idx_ls = []
     for i, data in enumerate(dataloader):
         if(i > 400):
             break
@@ -74,7 +76,7 @@ def calc_ralsd(G,dataloader,pred_num,is_inv = True):
           out = G(data[0].to("cuda:0").float(),data[2].to(device).float())
         else:
           out = G(data[0].to("cuda:0").float())
-
+        
         real = data[1].cpu()
         #print(real.shape)
         if(real.shape[1] == 1):
@@ -82,15 +84,20 @@ def calc_ralsd(G,dataloader,pred_num,is_inv = True):
         else:
           real = real[:,pred_num,...]
         zonal = out[:,pred_num,...].cpu().detach()
+        which_zero = torch.sum(torch.abs(zonal), dim = (1,2))
+        real = real[which_zero > 5,...]
+        zonal = zonal[which_zero > 5,...]
         
-        distMetric = ralsd(zonal.numpy(),real.numpy())
+        rasp_gen, rasp_truth = ralsd(zonal.numpy(),real.numpy())
         #t1 = np.mean(distMetric,axis = 0)
-        RALSD.append(distMetric)
+        res_gen.append(rasp_gen)
+        res_truth.append(rasp_truth)
+        idx_ls.append(data[3])
         del data
         del out
         del real
 
-    return(RALSD)
+    return(res_gen, res_truth, idx_ls)
 
 
 def ralsd(img,real):
@@ -110,7 +117,8 @@ def ralsd(img,real):
         fourier_amplitudes = np.abs(fourier_image)**2
         return fourier_amplitudes.flatten()
 
-    powers = []
+    powers_gen = []
+    powers_truth = []
     for i in range(ynew.shape[0]):
         wind_2d = calculate_2dft(ynew[i, ...])
         wind_real = calculate_2dft(real[i,...])
@@ -124,10 +132,12 @@ def ralsd(img,real):
         # now for ground truth
         Abins_R, _, _ = scipy.stats.binned_statistic(knrm, wind_real, statistic = "mean", bins = kbins) 
         Abins_R *= np.pi * (kbins[1:]**2 - kbins[:-1]**2)
-        Abins_stand = Abins/Abins_R
+        #Abins_stand = Abins/Abins_R
         # Add to a list -- each element is a RASPD
-        powers.append(Abins_stand)
-    return(powers)
+        powers_gen.append(Abins)
+        powers_truth.append(Abins_R)
+
+    return(powers_gen, powers_truth)
   
 def rankhist_preds(G, coarse, fine, invariant, random, batchsize = 4, is_invar = True):
   if is_invar:

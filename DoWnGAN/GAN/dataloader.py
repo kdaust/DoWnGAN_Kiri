@@ -35,4 +35,4 @@ class NetCDFSR(Dataset):
             return coarse_, fine_, -1
         else:
             invarient_ = self.invarient.to(self.device)
-            return coarse_, fine_, invarient_
+            return coarse_, fine_, invarient_, idx

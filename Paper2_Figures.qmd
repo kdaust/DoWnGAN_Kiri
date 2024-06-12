@@ -569,7 +569,7 @@ ggplot(dat2, aes(x = Precip, y = value, color = Model)) +
   scale_color_jama() +
   ylab("Frequency (log)") +
   xlab("Precipitation (mm/h)")
-#ggsave("paper2_figs/Precip_Distr.png", height = 5, width = 7, dpi = 400)
+ggsave("paper2_figs/Precip_Distr_sml.png", height = 3.5, width = 4, dpi = 400)
 
 ```
 
@@ -651,7 +651,8 @@ def load_data(data_folder, c_name, f_name, pred_num = None, precip = False):
 
 
 def make_rapsd(models, modNm, datasets, pred_num, title):
-  res = dict()
+  gen = dict()
+  truth = dict()
   for i in range(len(models)):
       print("Analysing model",modNm[i])
       G = mlflow.pytorch.load_model(models[i])
@@ -659,11 +660,11 @@ def make_rapsd(models, modNm, datasets, pred_num, title):
           dataset=datasets[i], batch_size=6, shuffle=True
       )
       
-      RALSD = calc_ralsd(G, dataloader,pred_num[i])
+      res_gen, res_truth, idx = calc_ralsd(G, dataloader,pred_num[i])
       # ral = np.mean(RALSD,axis = 0)
       # sdral = np.std(RALSD,axis = 0)
-      res[modNm[i]] = RALSD
-  
+      gen[modNm[i]] = res_gen
+      truth[modNm[i]] = res_truth
   # plt.close()
   # cols = ['orange','blue','red','green']
   # for i,nm in enumerate(modNm):
@@ -675,7 +676,7 @@ def make_rapsd(models, modNm, datasets, pred_num, title):
   # plt.title(title)
   # plt.legend()
   # plt.show()
-  return(res)
+  return(gen, truth)
 
 ```
 

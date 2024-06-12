@@ -124,8 +124,7 @@ class ResidualInResidualDenseBlockNoNoise(nn.Module):
     
 class Generator(nn.Module):
     # coarse_dim_n, fine_dim_n, n_covariates, n_predictands
-
-    def __init__(self, filters, fine_dims, channels_coarse, channels_invariant, n_predictands=2, num_res_blocks=14, num_res_blocks_fine = 1, num_upsample=3):
+    def __init__(self, filters, fine_dims, channels_coarse, channels_invariant, n_predictands=2, num_res_blocks=12, num_res_blocks_fine = 2, num_upsample=2):
         super(Generator, self).__init__()
         self.fine_res = fine_dims
         # First layer

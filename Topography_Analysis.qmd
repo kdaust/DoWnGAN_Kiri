@@ -166,7 +166,9 @@ G_lr = mlflow.pytorch.load_model("../Generators/paper2/topography/wind/lr_topo/"
 
 ```{python}
 def make_rapsd(models, modNm, datasets, pred_num):
-  res = dict()
+  gen = dict()
+  truth = dict()
+  idx = dict()
   for i in range(len(models)):
       print("Analysing model",modNm[i])
       G = mlflow.pytorch.load_model(models[i])
@@ -174,23 +176,13 @@ def make_rapsd(models, modNm, datasets, pred_num):
           dataset=datasets[i], batch_size=6, shuffle=True
       )
       
-      RALSD = calc_ralsd(G, dataloader,pred_num[i])
+      res_gen, res_truth, res_idx = calc_ralsd(G, dataloader,pred_num[i])
       # ral = np.mean(RALSD,axis = 0)
       # sdral = np.std(RALSD,axis = 0)
-      res[modNm[i]] = RALSD
-  
-  # plt.close()
-  # cols = ['orange','blue','red','green']
-  # for i,nm in enumerate(modNm):
-  #     plt.plot(res[nm][:,0], label = nm, color = cols[i])
-  #     plt.fill_between(range(64),res[nm][:,0]+res[nm][:,1],res[nm][:,0]-res[nm][:,1], alpha = 0.1, color = cols[i])
-  # plt.hlines(y = 1, xmin=0, xmax=64, color = "black")
-  # plt.xlabel("Wavenumber")
-  # plt.ylabel("Standardised Amplitude")
-  # plt.title(title)
-  # plt.legend()
-  # plt.show()
-  return(res)
+      gen[modNm[i]] = res_gen
+      truth[modNm[i]] = res_truth
+      idx[modNm[i]] = res_idx
+  return(gen, truth, idx)
 
 ```
 
@@ -428,12 +420,12 @@ ggsave("Location2_RankHist_2f.png")
 ### Loc2 RASP
 
 ```{python}
-models = ["../Generators/paper2/location2/wind/withcape/","../Generators/paper2/location2/temp/","../Generators/paper2/location2/humid_topolu/", "../Generators/paper2/location2/precip/"]
+models = ["../Generators/paper2/location2/wind/withcape/","../Generators/paper2/location2/temp/","../Generators/paper2/location2/humid_topolu/", "../Generators/paper2/location2/precip_topolu/"]
 modNm = ["Wind","Temperature","Humidity","Precip"]
 
 data_folder = "../Data/loc2_all/"
 
-dat = [load_data("../Data/wind_loc2/withcape/","coarse_test.nc","fine_test.nc"),load_data("../Data/loc2_all/","coarse_test.nc","fine_test_tq.nc",pred_num = 0),load_data("../Data/loc2_all/","coarse_test.nc","fine_test_tq.nc",inv_nm = "hr_topo_lu.pt", pred_num = 1), load_data("../Data/loc2_all/","coarse_test.nc", "fine_test_p.nc",inv_nm = "hr_topo_loc2.pt", precip = True)]
+dat = [load_data("../Data/wind_loc2/withcape/","coarse_test.nc","fine_test.nc"),load_data("../Data/loc2_all/","coarse_test.nc","fine_test_tq.nc",pred_num = 0),load_data("../Data/loc2_all/","coarse_test.nc","fine_test_tq.nc",inv_nm = "hr_topo_lu.pt", pred_num = 1), load_data("../Data/loc2_all/","coarse_test.nc", "fine_test_p.nc",inv_nm = "hr_topo_lu.pt", precip = True)]
 # cond_fields = xr.open_dataset(data_folder + "coarse_test.nc", engine="netcdf4")
 # fine_fields = xr.open_dataset(data_folder + "fine_test_tq.nc", engine="netcdf4")
 # coarse = torch.from_numpy(cond_fields.to_array().to_numpy()).transpose(0, 1)
@@ -443,12 +435,62 @@ inv_2f = torch.load(data_folder + "hr_topo_lu.pt")
 inv_2x = inv_reg.repeat(2,1,1)
 
 ds_ls = [NetCDFSR(x[0],x[1], x[2], device = device) for x in dat]
-ds1 = NetCDFSR(coarse, fine, inv_2x, device=device)
-ds2 = NetCDFSR(coarse, fine, inv_2f, device=device)
 
 
-res_all = make_rapsd(models, modNm, ds_ls, [0,0,0,0], "RASP")
-plt.savefig("Loc2_RASP.png", dpi = 400)
+res_gen, res_truth, idx_all = make_rapsd(models, modNm, ds_ls, [0,0,0,0])
+precip_idx = idx_all['Precip']
+p_idx = np.array(torch.cat(precip_idx))
+#plt.savefig("Loc2_RASP.png", dpi = 400)
+```
+
+### Investigate Precip
+
+```{python}
+def plot_realisations(G, coarse, fine, invariant, index, coarse_num, fine_num, pred_num = 0, svals = [0,1]):
+  num_instances=4; out_fn=None; plot_stride=1; num_frames = 1
+  num_samples = len(index)
+  num_rows = num_samples*num_frames
+  num_cols = 2+num_instances
+  
+  plt.close()
+  figsize = (num_cols*4, num_rows*8)
+  plt.figure(figsize=figsize)
+  gs = gridspec.GridSpec(num_rows, num_cols, wspace=0.05, hspace=0.05)
+  batchsize = num_instances
+  inv_in = invariant.repeat(int(batchsize),1,1,1).to(device).float()
+  #random.seed(3.1415926535)
+  vrng = np.quantile(un_stand(fine[0:1000,...],svals),[0.01,0.99])
+  for s in range(len(index)):
+      sample = index[s]
+      for t in range(num_frames):
+          i = s*num_frames+t
+          plt.subplot(gs[i,0])
+          plot_img(un_stand(torch.flipud(fine[sample,fine_num,...]),svals),value_range = vrng)
+          if(s == num_samples-1):
+              plt.xlabel("WRF", fontsize=10)
+          plt.subplot(gs[i,1])
+          plot_img(un_stand(torch.flipud(coarse[sample,coarse_num,...]),svals), value_range = vrng)
+          if(s == num_samples-1):
+              plt.xlabel("ERA5", fontsize=10)
+          for k in range(num_instances):
+              coarse_in = coarse[sample,...]
+              coarse_in = coarse_in.unsqueeze(0).repeat(int(batchsize),1,1,1).to(device).float()
+  
+              gen_out = un_stand(G(coarse_in, inv_in).cpu().detach(),svals)
+              j = 2+k
+              
+              plt.subplot(gs[i,j])
+              plot_img(torch.flipud(gen_out[k,pred_num,...]),value_range = vrng)
+              if(s == num_samples-1):
+                plt.xlabel("Gen {}".format(k+1), fontsize=10)
+              
+  plt.show()
+  
+idx_high = [964,  602,  513, 1072]
+idx_high_topo = [1180,  554, 1188, 1186, 1073, 1280,  559]
+G_p = mlflow.pytorch.load_model(models[3])
+plot_realisations(G_p, dat[3][0], dat[3][1], dat[3][2], index = idx_high_topo, coarse_num = 2, fine_num =0, pred_num = 0)
+plt.savefig("Precip_LU_Expl_High_noLU.png", dpi = 400)
 ```
 
 ```{r}
@@ -457,32 +499,58 @@ library(ggplot2)
 library(reticulate)
 library(matrixStats)
 
-dat <- py$res_all
+dat <- py$res_gen
+truth <- py$res_truth
+idx <- py$idx_all
+
+precip <- dat$Precip
+temp <- matrix(unlist(precip), ncol = 64, byrow = T)
+p_idx = py$p_idx
+
+t_max = rowMaxs(temp)
+t_med = rowMeans2(temp)
+plot(t_max, t_med)
+
+p_idx[which(t_max > 1000)]
 
 t_ls <- list()
 for(nm in names(dat)){
   temp <- matrix(unlist(dat[[nm]]), ncol = 64, byrow = T)
-  t_med <- colMedians(temp)
-  t_iqr <- colQuantiles(temp, probs = c(0.25,0.75))
-  t1 <- as.data.table(cbind(t_med, t_iqr))
+  t_med <- colMeans2(temp)
+  temp <- matrix(unlist(truth[[nm]]), ncol = 64, byrow = T)
+  tr_med <- colMeans2(temp)
+  r_stand = t_med/tr_med
+  t1 <- data.table(nm = r_stand)
   t_ls[[nm]] <- t1
 }
+
+# t_ls <- list()
+# for(nm in names(dat)){
+#   temp <- matrix(unlist(dat[[nm]]), ncol = 64, byrow = T)
+#   t_med <- colMedians(temp)
+#   t_iqr <- colQuantiles(temp, probs = c(0.25,0.75))
+#   t1 <- as.data.table(cbind(t_med, t_iqr))
+#   t_ls[[nm]] <- t1
+# }
 
 dat2 <- rbindlist(t_ls, idcol = "Model")
 
 dat2[,FreqBand := rep(1:64, length(dat))]
 #dat2[,Model := factor(Model, levels = c("NoFS","CRPS50","CRPS20"))]
 
-ggplot(dat2, aes(x = FreqBand, y = t_med, col = Model)) +
+ggplot(dat2, aes(x = FreqBand, y = nm, col = Model)) +
   geom_line(linewidth = 1) +
-  geom_ribbon(aes(ymin = `25%`, ymax = `75%`, fill = Model), alpha = 0.1, linetype = 1)+
+  #geom_ribbon(aes(ymin = `25%`, ymax = `75%`, fill = Model), alpha = 0.1, linetype = 1)+
   scale_colour_manual(values = c("darkgreen","darkblue","darkred","coral"),aesthetics = c("colour","fill")) +
   geom_hline(yintercept = 1) +
   geom_vline(xintercept = 16, col = "grey30", linetype = "dashed", size = 1)+
   theme_bw()+
+  theme(legend.position = "none") +
   facet_wrap(~ Model) +
   ylab("Standardised Amplitude") +
   xlab("Wavenumber") 
+
+ggsave("paper2_figs/Loc2_RASP_MeanFirst.png", width = 8, height = 5, dpi = 400)
 
 ```
 
