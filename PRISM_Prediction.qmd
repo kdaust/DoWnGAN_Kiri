@@ -1,0 +1,262 @@
+---
+title: "PRISM_Prediction"
+author: "Kiri, Susan"
+format: html
+editor: visual
+---
+
+```{python}
+import torch
+import numpy as np
+import mlflow
+import xarray as xr
+from matplotlib import pyplot as plt
+from matplotlib import colorbar, colors, gridspec
+from DoWnGAN.helpers.analysis import plot_img
+from DoWnGAN.helpers.analysis import ralsd
+from DoWnGAN.helpers.analysis import calc_ralsd
+from DoWnGAN.GAN.dataloader import NetCDFSR
+
+```
+
+# Stack Covariates
+
+```{r}
+library(terra)
+library(data.table)
+
+data_folder <- "../Data/PRISM/BC_Yukon/"
+
+hrcovs <- rast(paste(data_folder,c("dem_no_tile.nc", "lat_no_tile.nc","lon_no_tile.nc","coast_no_tile.nc"), sep = ""))
+
+plot(hrcovs)
+
+wrf <- rast(paste0(data_folder, "wrf_no_tile.nc"))
+#wrf <- crop(wrf,hrcovs)
+dim(wrf)
+dim(hrcovs)
+plot(wrf)
+
+writeCDF(hrcovs, paste0(data_folder,"hrcovs_cropped.nc"), overwrite = T)
+writeCDF(wrf, paste0(data_folder, "wrf_cropped.nc"), overwrite = T)
+```
+
+# Load Data
+
+```{python}
+data_folder = r.data_folder
+cond_fields = xr.open_dataset(data_folder + "hrcovs_cropped.nc")
+hrcov = torch.from_numpy(cond_fields.to_array().to_numpy())[0,...]
+
+wrf_fields = xr.open_dataset(data_folder + "wrf_cropped.nc")
+wrf2 = torch.from_numpy(wrf_fields.to_array().to_numpy())[0,...]
+
+plt.close()
+plt.imshow(hrcov[0,...])
+plt.show()
+
+plt.close()
+plt.imshow(wrf2)
+plt.show()
+
+wrf2[torch.isnan(wrf2)] = 0
+```
+
+# Make tiles
+
+```{python}
+import math
+def tile_data(tensor, tile_size, offset):
+  h, w = tensor.size(1), tensor.size(2)
+  res_ls = []
+  for y in range(int(math.ceil(h/offset))):
+    for x in range(int(math.ceil(w/offset))):
+      curr = tensor[:, offset*y:min(offset*y+tile_size, h), offset*x:min(offset*x+tile_size, w)]
+      if(y == 0):
+        res_ls.append([curr])
+      else:
+        res_ls[x].append(curr)
+  res_pad = [[torch.nn.functional.pad(ten, (0,tile_size-ten.shape[2],0,tile_size - ten.shape[1],0,0), mode = "constant", value = 0) for ten in x] for x in res_ls]
+  return(res_pad)
+	
+scale_factor = 4
+tile_size = 128
+offset = 96
+res_pad = tile_data(hrcov, tile_size, offset)
+wrf_tile = tile_data(wrf2.unsqueeze(0), int(tile_size/scale_factor), int(offset/scale_factor))
+
+plt.close()
+plt.imshow(res_pad[2][10][0,...])
+plt.show()
+
+plt.close()
+plt.imshow(wrf_tile[2][10][0,...])
+plt.show()
+```
+
+# Load Model and Predict
+
+```{python}
+G = mlflow.pytorch.load_model("../Generators/PRISM/gen250/")
+device = "cuda"
+wrf_tiles = [[ten.unsqueeze(0) for ten in x] for x in wrf_tile]
+hrcov_tiles = [[ten.unsqueeze(0) for ten in x] for x in res_pad]
+
+preds = [[G(wrf.to(device).float(),hr.to(device).float()).cpu().detach() for wrf, hr in zip(w1,h1)] for w1,h1 in zip(wrf_tiles, hrcov_tiles)]
+
+#g_script = torch.jit.script(G)
+```
+
+```{python}
+plt.close()
+plt.imshow(preds[2][10][0,0,...])
+plt.show()
+
+plt.close()
+plt.imshow(preds[2][11][0,0,...])
+plt.show()
+```
+
+# Crop and Stitch
+
+```{python}
+ncol = len(preds)
+nrow = len(preds[0])
+pad_size = int((tile_size-offset)/2)
+pred_crop = [[ten[0,0,pad_size:-pad_size,pad_size:-pad_size] for j,ten in enumerate(x)] for i,x in enumerate(preds)]
+
+pred_cols = [torch.cat(col, dim = 0) for col in pred_crop]
+
+plt.close()
+plt.imshow(pred_cols[2])
+plt.show()
+
+final_res = torch.cat(pred_cols, dim = 1)
+final_pad = torch.nn.functional.pad(final_res, (pad_size,pad_size,pad_size,pad_size), mode = "constant", value = 0)
+# left = [ten[0,0,:,:pad_size] for ten in preds[0]]
+# right = [ten[0,0,:,-pad_size:] for ten in preds[ncol-1]]
+# l_all = torch.cat(left, dim = 0)[pad_size:-pad_size,:]
+# r_all = torch.cat(right, dim = 0)
+# 
+# top = [col[0][0,0,:pad_size,:] for col in preds]
+# bottom = [col[nrow-1][0,0,-pad_size:,:] for col in preds]
+# t_all = torch.cat(top, dim = 1)
+# b_all = torch.cat(bottom, dim = 1)
+# 
+# plt.close()
+# plt.imshow(t_all)
+# plt.show()
+```
+
+```{python}
+res_np = np.array(final_pad)
+
+plt.close()
+plt.imshow(res_np)
+plt.show()
+
+res_np.shape
+# res_np2 = res_np[:1387,:3260]
+# 
+# plt.savefig("Tiled_Yukon_Jn14.png", dpi = 400)
+```
+
+# Create Raster
+
+```{r}
+library(terra)
+library(data.table)
+library(reticulate)
+
+res <- hrcovs[[1]]
+rast_dim <- dim(res)
+preds <- py$res_np
+dim(preds)
+
+preds <- preds[1:rast_dim[1],1:rast_dim[2]]
+values(res) <- preds
+plot(res)
+
+unstand_mean <- 1.6630528
+unstand_std <- 3.899911
+
+res_us <- res * unstand_std + unstand_mean
+plot(res_us)
+
+writeRaster(res, paste0(data_folder,"GAN_Preds_June17_UnStand.tif"), overwrite = T)
+```
+
+## Old
+
+```{python}
+batchsize = 2
+
+all_gens = []
+for j in range(int(wrf.shape[0]/batchsize)):
+  coarse_in = torch.cat(wrf_tiles[(j*batchsize):((j+1)*batchsize)],dim = 0).to(device).float()
+  hr_in = torch.cat(hrcov_tiles[(j*batchsize):((j+1)*batchsize)],dim = 0).to(device).float()
+  gen_out = G(coarse_in, hr_in).cpu().detach()
+  all_gens.append(gen_out)
+  del gen_out
+sr = torch.cat(all_gens, 0)
+
+sr = sr.squeeze()
+sr_ls = list(sr)
+reg_all = rebuild_tensor(sr_ls, hrcov[0,...].unsqueeze(0))
+
+plt.close()
+plt.imshow(reg_all[0,...])
+plt.show()
+plt.savefig("Yukon1.png", dpi = 400)
+sr = sr.squeeze()
+test = sr[0:9,...].reshape((9*128,128))
+test2 = sr[:261,...].reshape((29*128,9*128))
+
+d1ls = []
+for i in range(2):
+  print(i)
+  temp = sr[i*9:(i*9)+9,...]
+  d1ls.append(temp.reshape(9*128,128))
+
+i = 2
+temp = hrcov[18:27,0,...]
+test = temp.reshape(9*128,128)
+reg_all = torch.cat(d1ls, dim = 1)
+
+plt.close()
+plt.imshow(reg_all)
+plt.show()
+plt.savefig("test_prism.png", dpi = 400)
+
+plt.close()
+plt.imshow(d1ls[8])
+plt.show()
+
+data_folder = "../Data/PRISM/yukon/"
+cond_fields = xr.open_dataset(data_folder + "dem_no_tile.nc", engine="netcdf4")
+clat = xr.open_dataset(data_folder + "lat_no_tile.nc", engine="netcdf4")
+clon = xr.open_dataset(data_folder + "lon_no_tile.nc", engine="netcdf4")
+ccoast = xr.open_dataset(data_folder + "coast_no_tile.nc", engine="netcdf4")
+lat = torch.from_numpy(clat.to_array().to_numpy())[0,:]
+lon = torch.from_numpy(clon.to_array().to_numpy())[0,:]
+coast = torch.from_numpy(ccoast.to_array().to_numpy())[0,:]
+dem = torch.from_numpy(cond_fields.to_array().to_numpy())
+dem = dem[0,...]
+
+hrcov = torch.cat([dem.unsqueeze(0), lat.unsqueeze(0), lon.unsqueeze(0), coast.unsqueeze(0)], dim = 0)
+hrcov = hrcov[:,:1280,1236:]
+
+plt.close()
+plt.imshow(hrcov[0,...])
+plt.show()
+
+cond_fields = xr.open_dataset(data_folder + "wrf_no_tile.nc", engine="netcdf4")
+wrf = torch.from_numpy(cond_fields.to_array().to_numpy())[0,:]
+wrf2 = wrf[:320,309:]
+
+plt.close()
+plt.imshow(wrf2)
+plt.colorbar()
+plt.show()
+
+```
